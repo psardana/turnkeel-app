@@ -1,0 +1,36 @@
+{
+  "name": "turnkeel-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Turnkeel monorepo. The packages are in packages/ and apps/.",
+  "license": "SEE LICENSE IN LICENSING.md",
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "pnpm --recursive --if-present run build",
+    "dev": "pnpm --recursive --parallel --if-present run dev",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint --max-warnings 0 --ignore-pattern 'packages/connectors/**' . && eslint --max-warnings 0 packages/connectors && prettier --check .",
+    "test": "vitest run",
+    "test:pack": "pnpm build && node scripts/pack-smoke.mjs",
+    "test:e2e": "pnpm --filter @turnkeel/web build && playwright test --config e2e/playwright.config.ts",
+    "typecheck": "tsc --project tsconfig.json && tsc --project e2e/tsconfig.json && pnpm --recursive --if-present run typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.65.0",
+    "@types/node": "catalog:",
+    "eslint": "10.14.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
+    "prettier": "3.9.10",
+    "typescript": "catalog:",
+    "typescript-eslint": "8.72.2",
+    "vitest": "catalog:"
+  }
+}

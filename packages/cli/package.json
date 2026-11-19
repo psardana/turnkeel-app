@@ -1,0 +1,50 @@
+{
+  "name": "turnkeel",
+  "version": "0.0.0",
+  "description": "The turnkeel command: the launcher for local mode and the client for a Turnkeel server.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/psardana/turnkeel-app.git",
+    "directory": "packages/cli"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "bin": {
+    "turnkeel": "./bin/turnkeel.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "templates"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "start": "node --import ../../apps/server/scripts/ts-resolve.mjs bin/turnkeel.js",
+    "test": "vitest run",
+    "typecheck": "tsc --project tsconfig.json"
+  },
+  "dependencies": {
+    "@turnkeel/protocol": "workspace:*",
+    "@turnkeel/server": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

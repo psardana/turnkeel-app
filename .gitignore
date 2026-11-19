@@ -1,0 +1,34 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# local data and secrets
+.env
+.env.*
+!.env.example
+.turnkeel-data/
+*.pem
+*.p8
+*.p12
+*.key
+
+# editors and OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# written by the web app's build (apps/web/scripts/copy-font-licences.mjs)
+apps/web/public/licenses/
+
+# test output
+playwright-report/
+test-results/
+e2e/screenshots/
+e2e/.data/
+
+# packed packages
+*.tgz

@@ -1,0 +1,21 @@
+pnpm-lock.yaml
+dist/
+coverage/
+node_modules/
+
+# The images of the README and the licence texts are not reformatted.
+docs/
+LICENSE
+**/LICENSE
+DCO.md
+
+# Written by drizzle-kit and read by the migrator.
+packages/db/migrations/
+
+# Written by the TanStack Router plugin.
+apps/web/src/routeTree.gen.ts
+
+# What the browser tests leave behind.
+playwright-report/
+test-results/
+e2e/screenshots/

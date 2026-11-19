@@ -1,0 +1,46 @@
+packages:
+  - packages/*
+  - packages/connectors/*
+  - apps/*
+
+# Versions used by more than one package are named once, here, and exact.
+catalog:
+  '@electric-sql/pglite': 0.5.16
+  '@types/node': 22.20.5
+  drizzle-orm: 0.45.4
+  pg: 8.23.1
+  tsdown: 0.23.7
+  typescript: 6.0.3
+  vitest: 5.1.0
+  zod: 4.6.7
+
+saveExact: true
+savePrefix: ''
+
+# A version must have been published for a day before it is installed. Setting this
+# makes it strict: pnpm fails instead of taking a newer version.
+minimumReleaseAge: 1440
+
+# No update checks (Security: telemetry is off).
+updateNotifier: false
+
+# What dependencies may do besides being imported. tsdown and TanStack Router ship
+# agent skills; they are not installed.
+permissions:
+  '@tanstack/react-router':
+    skills: false
+  '@tanstack/router-plugin':
+    skills: false
+  tsdown:
+    skills: false
+
+# Build scripts of dependencies run only when they are allowed here. esbuild (which
+# drizzle-kit uses) works without its install script, so it stays off.
+allowBuilds:
+  esbuild: false
+
+# drizzle-orm names kysely as an optional peer, and Better Auth brings kysely in. Without
+# this line the server would get a second copy of drizzle-orm (one that sees kysely)
+# next to the one packages/db uses. Turnkeel does not use drizzle-orm with kysely.
+overrides:
+  'drizzle-orm>kysely': '-'

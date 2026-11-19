@@ -1,0 +1,96 @@
+{
+  "name": "@turnkeel/server",
+  "version": "0.0.0",
+  "description": "The Turnkeel server.",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/psardana/turnkeel-app.git",
+    "directory": "apps/server"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "node --watch scripts/dev.mjs",
+    "start": "node --import ./scripts/ts-resolve.mjs dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --project tsconfig.json"
+  },
+  "dependencies": {
+    "@better-auth/passkey": "1.7.19",
+    "@electric-sql/pglite": "catalog:",
+    "@hono/node-server": "2.1.6",
+    "@turnkeel/connector-sdk": "workspace:*",
+    "@turnkeel/mcp": "workspace:*",
+    "@turnkeel/protocol": "workspace:*",
+    "better-auth": "1.7.19",
+    "drizzle-orm": "catalog:",
+    "hono": "4.13.17",
+    "nodemailer": "10.4.0",
+    "pg": "catalog:",
+    "pg-boss": "12.38.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@turnkeel/connector-anthropic-usage": "workspace:*",
+    "@turnkeel/connector-app-store-connect": "workspace:*",
+    "@turnkeel/connector-app-store-reviews": "workspace:*",
+    "@turnkeel/connector-app-store-sales": "workspace:*",
+    "@turnkeel/connector-apple-search-ads": "workspace:*",
+    "@turnkeel/connector-aws-cost-explorer": "workspace:*",
+    "@turnkeel/connector-azure-cost-management": "workspace:*",
+    "@turnkeel/connector-cloudflare": "workspace:*",
+    "@turnkeel/connector-csv": "workspace:*",
+    "@turnkeel/connector-digitalocean": "workspace:*",
+    "@turnkeel/connector-email-imap": "workspace:*",
+    "@turnkeel/connector-gcp-billing": "workspace:*",
+    "@turnkeel/connector-geoapify": "workspace:*",
+    "@turnkeel/connector-github": "workspace:*",
+    "@turnkeel/connector-github-billing": "workspace:*",
+    "@turnkeel/connector-google-ads": "workspace:*",
+    "@turnkeel/connector-google-play-reviews": "workspace:*",
+    "@turnkeel/connector-google-play-sales": "workspace:*",
+    "@turnkeel/connector-instagram": "workspace:*",
+    "@turnkeel/connector-lemon-squeezy": "workspace:*",
+    "@turnkeel/connector-manual": "workspace:*",
+    "@turnkeel/connector-meta-ads": "workspace:*",
+    "@turnkeel/connector-neon": "workspace:*",
+    "@turnkeel/connector-netlify": "workspace:*",
+    "@turnkeel/connector-openai-usage": "workspace:*",
+    "@turnkeel/connector-openrouter": "workspace:*",
+    "@turnkeel/connector-paddle": "workspace:*",
+    "@turnkeel/connector-postmark": "workspace:*",
+    "@turnkeel/connector-resend": "workspace:*",
+    "@turnkeel/connector-revenuecat": "workspace:*",
+    "@turnkeel/connector-sentry": "workspace:*",
+    "@turnkeel/connector-stripe": "workspace:*",
+    "@turnkeel/connector-threads": "workspace:*",
+    "@turnkeel/connector-tiktok": "workspace:*",
+    "@turnkeel/connector-vercel": "workspace:*",
+    "@turnkeel/connector-webhook-publisher": "workspace:*",
+    "@turnkeel/connector-x": "workspace:*",
+    "@turnkeel/connector-youtube": "workspace:*",
+    "@turnkeel/core": "workspace:*",
+    "@turnkeel/db": "workspace:*",
+    "@turnkeel/markdown": "workspace:*",
+    "@turnkeel/web": "workspace:*",
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
