@@ -1,0 +1,44 @@
+{
+  "name": "@turnkeel/protocol",
+  "version": "0.0.0",
+  "description": "The types and zod schemas of Turnkeel's requests and results, the human-text type and the error codes.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/psardana/turnkeel-app.git",
+    "directory": "packages/protocol"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc --project tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "@turnkeel/mcp",
+  "version": "0.0.0",
+  "description": "Turnkeel's MCP tool definitions and result helpers.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/psardana/turnkeel-app.git",
+    "directory": "packages/mcp"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc --project tsconfig.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "@turnkeel/protocol": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

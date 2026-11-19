@@ -1,0 +1,44 @@
+{
+  "name": "@turnkeel/connector-sdk",
+  "version": "0.0.0",
+  "description": "The contract a Turnkeel connector implements.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/psardana/turnkeel-app.git",
+    "directory": "packages/connector-sdk"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc --project tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

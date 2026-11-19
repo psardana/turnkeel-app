@@ -1,0 +1,35 @@
+{
+  "name": "@turnkeel/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Turnkeel's database schema, migrations and repositories, for Postgres and PGlite.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "test": "vitest run",
+    "typecheck": "tsc --project tsconfig.json"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "catalog:",
+    "@turnkeel/core": "workspace:*",
+    "@turnkeel/protocol": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "pg": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/pg": "8.23.1",
+    "drizzle-kit": "0.31.11",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
