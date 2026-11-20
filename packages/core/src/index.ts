@@ -8,7 +8,61 @@ export {
   type AccountCreation,
   type InvitationAcceptance,
 } from './accounts.js';
+export {
+  actions,
+  humanOnlyActions,
+  isAction,
+  isHumanOnly,
+  isRead,
+  membershipActions,
+  tableActions,
+  type Action,
+  type HumanOnlyAction,
+  type MembershipAction,
+  type TableAction,
+} from './actions.js';
+export { type Allowed, type Decision, type Denied } from './decision.js';
+export { guards, type Guard } from './guards.js';
+export {
+  effectiveProjectRole,
+  isOwnerAnywhere,
+  membershipIn,
+  personPrincipal,
+  principalRef,
+  projectRoleIn,
+  systemPrincipal,
+  type AgentPrincipal,
+  type Membership,
+  type PersonPrincipal,
+  type Principal,
+  type SystemPrincipal,
+} from './principal.js';
 export { sameRef } from './ref.js';
+export type {
+  AnyResource,
+  BuildResource,
+  CardUpdateResource,
+  DecisionResource,
+  FileReadResource,
+  FileUploadResource,
+  GatePass,
+  GateResource,
+  HandleResource,
+  MoneyResource,
+  NoteResource,
+  SessionResource,
+  SignalResource,
+  MemberChange,
+  MemberManageResource,
+  ProjectResource,
+  ResourceFor,
+  AgentManageResource,
+  OnWordResource,
+  RelayResource,
+  ServerResource,
+  WorkspaceResource,
+} from './resource.js';
+export { roleTable, type Level, type RoleRule } from './role-table.js';
 export {
   eventMatches,
   isRunMissed,
