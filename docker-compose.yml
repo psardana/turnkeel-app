@@ -1,0 +1,183 @@
+# Services for development and for the tests that need them: Postgres, an object
+# store and a mail catcher. `docker compose up` starts these three and not Turnkeel
+# itself, which in development runs from its sources with pnpm.
+#
+# The service `app` is Turnkeel as its image (the Dockerfile), wired to the three.
+# It is behind a profile, so it starts only when asked for:
+#
+#   docker compose --profile app up --build --detach --wait
+#   docker compose --profile app down
+#
+# Once a version is released, the image can be pulled instead of built: it is
+# ghcr.io/psardana/turnkeel:<version>. Tag it
+# turnkeel-app and start without --build, and compose uses it:
+#
+#   docker pull ghcr.io/psardana/turnkeel:<version>
+#   docker tag ghcr.io/psardana/turnkeel:<version> turnkeel-app
+#   docker compose --profile app up --detach --wait
+#
+# The service `ollama` is a model server for the assistant, behind
+# the profile `assistant`. Nothing else starts it, and this file pulls no model:
+#
+#   docker compose --profile assistant up --detach --wait ollama
+#   docker compose --profile assistant exec ollama ollama pull <model>
+#
+# Every port is published on 127.0.0.1 only, because the passwords below are
+# written in this file and are for development alone.
+#
+# Postgres, the object store and the mail catcher come back by themselves when Docker
+# restarts, unless they were stopped with `docker compose stop` or `down`.
+name: turnkeel
+
+services:
+  # Turnkeel itself: the web app, the API and the rest on one port, with sign-in on.
+  # Sign-in links and invitations arrive in the mail catcher, http://127.0.0.1:4425.
+  app:
+    profiles: [app]
+    build: .
+    image: turnkeel-app
+    environment:
+      TURNKEEL_PUBLIC_URL: http://localhost:4400
+      # Signs sessions and sign-in links. This value is for development alone; a server
+      # that other people reach gets its own (openssl rand -base64 32).
+      TURNKEEL_AUTH_SECRET: ${TURNKEEL_AUTH_SECRET:-development-only-secret-not-for-a-real-server}
+      DATABASE_URL: postgres://turnkeel:turnkeel@postgres:5432/turnkeel
+      SMTP_URL: smtp://mail:1025
+      MAIL_FROM: Turnkeel <turnkeel@localhost>
+      # The server reaches the object store by its service name, a browser by the
+      # published port.
+      S3_ENDPOINT: http://storage:9000
+      S3_PUBLIC_ENDPOINT: http://127.0.0.1:9400
+      S3_BUCKET: turnkeel
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: turnkeel
+      S3_SECRET_ACCESS_KEY: turnkeel-dev-secret
+      S3_FORCE_PATH_STYLE: 'true'
+      # The install's default provider for the assistant, from the shell that starts
+      # this, empty unless set: with none, Turnkeel has no default.
+      # With the profile `assistant`, the model server is http://ollama:11434/v1.
+      TURNKEEL_ASSISTANT_PROVIDER: ${TURNKEEL_ASSISTANT_PROVIDER:-}
+      TURNKEEL_ASSISTANT_BASE_URL: ${TURNKEEL_ASSISTANT_BASE_URL:-}
+      TURNKEEL_ASSISTANT_MODEL: ${TURNKEEL_ASSISTANT_MODEL:-}
+      TURNKEEL_ASSISTANT_API_KEY: ${TURNKEEL_ASSISTANT_API_KEY:-}
+      TURNKEEL_ASSISTANT_DAILY_CAP: ${TURNKEEL_ASSISTANT_DAILY_CAP:-}
+    ports:
+      - '127.0.0.1:4400:4400'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mail:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    # The image has its own health check, on /healthz.
+
+  postgres:
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: turnkeel
+      POSTGRES_PASSWORD: turnkeel
+      POSTGRES_DB: turnkeel
+    ports:
+      - '127.0.0.1:54420:5432'
+    volumes:
+      # Since Postgres 18 the image keeps its data in a folder per major version
+      # under /var/lib/postgresql, so the volume is mounted there.
+      - postgres-data:/var/lib/postgresql
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # Over TCP, so it does not pass while the first-run scripts are still running.
+      test: ['CMD', 'pg_isready', '--host=127.0.0.1', '--username=turnkeel', '--dbname=turnkeel']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  # S3-compatible object storage: RustFS.
+  storage:
+    image: rustfs/rustfs:1.0.5
+    restart: unless-stopped
+    environment:
+      RUSTFS_ACCESS_KEY: turnkeel
+      RUSTFS_SECRET_KEY: turnkeel-dev-secret
+      RUSTFS_ADDRESS: ':9000'
+      RUSTFS_CONSOLE_ENABLE: 'true'
+      RUSTFS_CONSOLE_ADDRESS: ':9001'
+      # No update check at start.
+      RUSTFS_CHECK_UPDATE: 'false'
+    ports:
+      - '127.0.0.1:9400:9000' # S3 API
+      - '127.0.0.1:9401:9001' # console
+    volumes:
+      - storage-data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '--fail', '--silent', '--show-error', 'http://127.0.0.1:9000/health']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  # Runs once: makes the bucket and sets its CORS rule, so that a browser can
+  # upload to a signed URL from the app's address.
+  storage-init:
+    image: amazon/aws-cli:2.40.0
+    depends_on:
+      storage:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: turnkeel
+      AWS_SECRET_ACCESS_KEY: turnkeel-dev-secret
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://storage:9000
+      AWS_EC2_METADATA_DISABLED: 'true'
+    volumes:
+      - ./docker/storage/cors.json:/etc/turnkeel/cors.json:ro
+    entrypoint: ['/bin/sh', '-ec']
+    command:
+      - |
+        aws s3api head-bucket --bucket turnkeel 2>/dev/null || aws s3api create-bucket --bucket turnkeel
+        aws s3api put-bucket-cors --bucket turnkeel --cors-configuration file:///etc/turnkeel/cors.json
+        echo "Bucket turnkeel is ready."
+    restart: 'no'
+
+  # Mail catcher: Mailpit. It keeps what it receives and sends nothing on.
+  mail:
+    image: axllent/mailpit:v1.33.1
+    restart: unless-stopped
+    environment:
+      # No update check.
+      MP_DISABLE_VERSION_CHECK: 'true'
+      MP_SMTP_AUTH_ACCEPT_ANY: 'true'
+      MP_SMTP_AUTH_ALLOW_INSECURE: 'true'
+    ports:
+      - '127.0.0.1:4425:8025' # web page and API
+      - '127.0.0.1:4426:1025' # SMTP
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  # A model server for the assistant: Ollama, on
+  # Ollama's own port. Behind the profile `assistant`, so neither `docker compose up`
+  # nor the profile `app` starts it. It pulls no model; the models stay in the volume.
+  ollama:
+    profiles: [assistant]
+    image: ollama/ollama:0.40.16
+    ports:
+      - '127.0.0.1:11434:11434'
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ['CMD', 'ollama', 'list']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  postgres-data:
+  storage-data:
+  ollama-data:
