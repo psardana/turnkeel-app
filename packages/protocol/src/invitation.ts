@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { commonFields } from './common.js';
 import { emailSchema, handleSchema, idSchema, timestampSchema } from './ids.js';
+import { memberSchema, projectMemberSchema } from './member.js';
 import { roleSchema } from './roles.js';
+import { workspaceSchema } from './workspace.js';
 
 /**
  * An invitation, as a response shows it. The token and its hash are
@@ -77,5 +79,15 @@ export const invitationLookupSchema = z.strictObject({
 });
 
 export type InvitationLookup = z.infer<typeof invitationLookupSchema>;
+
+/**
+ * What `POST /invitations/accept` answers: the workspace the person joined, and the
+ * Member or the ProjectMember that was made. Exactly one of the two is set.
+ */
+export const acceptInvitationResponseSchema = z.strictObject({
+  workspace: workspaceSchema,
+  member: memberSchema.nullable(),
+  projectMember: projectMemberSchema.nullable(),
+});
 
 export type AcceptInvitationResponse = z.infer<typeof acceptInvitationResponseSchema>;
