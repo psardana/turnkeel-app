@@ -118,6 +118,7 @@ export {
   type InvitationLookup,
   type LookupInvitationRequest,
 } from './invitation.js';
+export { meSchema, myWorkspaceSchema, type Me, type MyWorkspace } from './me.js';
 export {
   DISPLAY_NAME_MAX,
   memberSchema,
@@ -177,6 +178,7 @@ export {
   type Role,
   type WorkspaceRole,
 } from './roles.js';
+export { mailKinds, serverInfoSchema, type MailKind, type ServerInfo } from './server-info.js';
 export {
   createWorkspaceRequestSchema,
   transferWorkspaceRequestSchema,

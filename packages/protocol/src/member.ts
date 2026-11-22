@@ -60,4 +60,15 @@ export const setProjectMemberRequestSchema = z.strictObject({
 
 export type SetProjectMemberRequest = z.infer<typeof setProjectMemberRequestSchema>;
 
+/**
+ * One person in `GET /workspaces/:ws/members`: the account, the workspace role when
+ * they have one, and their project roles. A person who holds only project roles has
+ * `member: null`. The list is read under `member.read`, so it carries the email.
+ */
+export const workspacePersonSchema = z.strictObject({
+  user: userSchema,
+  member: memberSchema.nullable(),
+  projectMembers: z.array(projectMemberSchema),
+});
+
 export type WorkspacePerson = z.infer<typeof workspacePersonSchema>;

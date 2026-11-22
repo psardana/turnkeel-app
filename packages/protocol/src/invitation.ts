@@ -41,4 +41,41 @@ export const acceptInvitationRequestSchema = z.strictObject({
 
 export type AcceptInvitationRequest = z.infer<typeof acceptInvitationRequestSchema>;
 
+/**
+ * What `POST /workspaces/:ws/invitations` answers: the invitation, and what became of
+ * its mail. `logged` means mail is not configured and the link is in the server log;
+ * `failed` means the invitation exists and the mail could not be sent.
+ */
+export const createInvitationResponseSchema = z.strictObject({
+  invitation: invitationSchema,
+  mail: z.enum(['sent', 'logged', 'failed']),
+});
+
+export type CreateInvitationResponse = z.infer<typeof createInvitationResponseSchema>;
+
+/** `POST /invitations/lookup`: the token from the link. */
+export const lookupInvitationRequestSchema = z.strictObject({
+  token: z.string().min(1).max(200),
+});
+
+export type LookupInvitationRequest = z.infer<typeof lookupInvitationRequestSchema>;
+
+/**
+ * What an invited person learns before they accept: the workspace, the
+ * project when there is one, the role, who invited them, and the address the
+ * invitation was sent to. `suggestedHandle` is a free handle for an invitation to the
+ * workspace, made from the signed-in person's name, and null otherwise.
+ */
+export const invitationLookupSchema = z.strictObject({
+  email: emailSchema,
+  role: roleSchema,
+  workspace: z.strictObject({ name: z.string(), slug: z.string() }),
+  project: z.strictObject({ name: z.string() }).nullable(),
+  invitedBy: z.strictObject({ name: z.string() }),
+  expiresAt: timestampSchema,
+  suggestedHandle: handleSchema.nullable(),
+});
+
+export type InvitationLookup = z.infer<typeof invitationLookupSchema>;
+
 export type AcceptInvitationResponse = z.infer<typeof acceptInvitationResponseSchema>;
