@@ -1,0 +1,522 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+/* Dark is a class on <html>, set before first paint by public/theme-init.js. */
+@custom-variant dark (&:is(.dark *));
+
+/* A window high enough for bars that stay in place. */
+@custom-variant tall (@media (min-height: 480px));
+
+/*
+ * Design tokens. Every colour, radius and font the app
+ * uses is one of these variables, so a screen picks from them and never writes a
+ * colour of its own.
+ *
+ * A white ground, dark text, hairline dividers and one accent, teal. The accent marks
+ * what is the viewer's, what is new, where they are, links, the focus ring and the
+ * one main action. It never means passed or done.
+ */
+:root {
+  /* Surfaces and text */
+  --background: #ffffff;
+  --foreground: #18181b;
+  --foreground-soft: #3f3f46;
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+  --muted: #f4f4f5;
+  --muted-foreground: #52525b;
+  --secondary: #f4f4f5;
+  --secondary-foreground: var(--foreground);
+  /* "accent" is the name the components use for a hovered row. It is a neutral. */
+  --accent: #f4f4f5;
+  --accent-foreground: var(--foreground);
+  --selected: #e6f4f1;
+
+  /* The one accent colour */
+  --primary: #0f766e;
+  --primary-hover: #115e59;
+  --primary-foreground: #ffffff;
+  --ring: #0f766e;
+
+  /* Lines */
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --input: #8a8a93;
+
+  /* States */
+  --destructive: #b91c1c;
+  --destructive-hover: #991b1b;
+  --destructive-foreground: #ffffff;
+
+  --state-passed: var(--foreground-soft);
+  --state-open: var(--primary);
+  --state-changes: #92400e;
+  --state-failed: var(--destructive);
+  --state-new: var(--primary);
+  --state-new-foreground: var(--primary-foreground);
+  --success: var(--state-passed);
+  --warning: var(--state-changes);
+
+  /* Menus, dialogs, sheets and toasts. Nothing else has a shadow. */
+  --raised-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+
+  --label-blue: #0f2d6a;
+  --label-violet: #5d24ab;
+  --label-pink: #aa1e64;
+  --label-green: #2f7b24;
+  --label-plum: #ba52bd;
+  --label-slate: #6d8d9e;
+
+  /* Shape and type */
+  --radius: 0.375rem;
+  --font-ui: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-code: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Sizes */
+  --touch-target: 2.75rem; /* 44 px */
+  --header-height: 3rem; /* 48 px, the first row of the header */
+  --tabbar-height: 2.75rem; /* 44 px, the tab bar */
+  --shell-height: calc(var(--header-height) + var(--tabbar-height)); /* 92 px, both rows */
+  --sectionbar-height: 2.5rem; /* 40 px, the bar of sections of Ship, Marketing, Reference */
+  --intro-height: 0px; /* a tab's intro while it shows; TabIntro sets it */
+  --topbar-height: 3.5rem; /* 56 px, the phone top bar */
+  --bottombar-height: 4rem; /* 64 px, the phone bottom bar */
+  --page-width: 64rem; /* single-column pages */
+
+  /* Names the generated components expect. Charts get their own colours below. */
+  --chart-1: var(--primary);
+  --chart-2: var(--success);
+  --chart-3: var(--warning);
+  --chart-4: var(--muted-foreground);
+  --chart-5: var(--destructive);
+  --sidebar: var(--muted);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+.dark {
+  --background: #18181b;
+  --foreground: #f4f4f5;
+  --foreground-soft: #d4d4d8;
+  --card: #1f1f23;
+  --popover: #1f1f23;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --secondary: #27272a;
+  --accent: #27272a;
+  --selected: #12302d;
+
+  --primary: #14b8a6;
+  --primary-hover: #2dd4bf;
+  --primary-foreground: #042f2e;
+  --ring: #14b8a6;
+
+  --border: #303036;
+  --border-strong: #3f3f46;
+  --input: #85858f;
+
+  --destructive: #f87171;
+  --destructive-hover: #fca5a5;
+  --destructive-foreground: #18181b;
+
+  --state-changes: #fbbf24;
+  --raised-shadow: 0 8px 24px rgb(0 0 0 / 0.5);
+
+  --label-blue: #3a73e3;
+  --label-violet: #a172e1;
+  --label-pink: #e775ae;
+  --label-green: #56c945;
+  --label-plum: #e3bae5;
+  --label-slate: #d3dde1;
+}
+
+@theme inline {
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
+  --font-heading: var(--font-ui);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-foreground-soft: var(--foreground-soft);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-selected: var(--selected);
+  --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-state-passed: var(--state-passed);
+  --color-state-open: var(--state-open);
+  --color-state-changes: var(--state-changes);
+  --color-state-failed: var(--state-failed);
+  --color-state-new: var(--state-new);
+  --color-state-new-foreground: var(--state-new-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --shadow-raised: var(--raised-shadow);
+  --color-label-blue: var(--label-blue);
+  --color-label-violet: var(--label-violet);
+  --color-label-pink: var(--label-pink);
+  --color-label-green: var(--label-green);
+  --color-label-plum: var(--label-plum);
+  --color-label-slate: var(--label-slate);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --spacing-touch: var(--touch-target);
+  --spacing-header: var(--header-height);
+  --spacing-tabbar: var(--tabbar-height);
+  --spacing-sectionbar: var(--sectionbar-height);
+  --spacing-topbar: var(--topbar-height);
+  --spacing-bottombar: var(--bottombar-height);
+  --spacing-shell: var(--shell-height);
+  --container-page: var(--page-width);
+}
+
+/*
+ * The type scale: one class per role, with its line height.
+ * src/lib/utils.ts tells the class merger that these are sizes and not colours.
+ */
+@theme {
+  --text-figure: 2.5rem;
+  --text-figure--line-height: 2.75rem;
+  --text-item: 1.375rem;
+  --text-item--line-height: 1.75rem;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.75rem;
+  --text-lead: 1.0625rem;
+  --text-lead--line-height: 1.625rem;
+  --text-reading: 0.9375rem;
+  --text-reading--line-height: 1.5rem;
+  --text-line: 0.9375rem;
+  --text-line--line-height: 1.375rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.3125rem;
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.25rem;
+  --text-small: 0.75rem;
+  --text-small--line-height: 1.125rem;
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1rem;
+
+  /* Hover and selection change in 120 ms. */
+  --default-transition-duration: 120ms;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background text-body text-foreground antialiased;
+    min-height: 100dvh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-semibold text-balance;
+  }
+
+  /* One focus ring, always visible from the keyboard, on every control. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled, [aria-disabled='true']),
+  [role='button']:not(:disabled, [aria-disabled='true']),
+  [role='menuitem'],
+  [role='menuitemradio'],
+  summary {
+    cursor: pointer;
+  }
+
+  a {
+    text-underline-offset: 0.18em;
+  }
+
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  /* Mono is always 400, so a key inside a bold title does not get a faked bold. */
+  code,
+  kbd,
+  samp,
+  pre {
+    font-weight: 400;
+  }
+
+  time,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * A control that takes focus is never under a bar: the sticky header, and on a
+   * phone the bar at the bottom. Under 480 px of height nothing is sticky or fixed.
+   */
+  @media (min-height: 480px) {
+    html {
+      scroll-padding-top: var(--topbar-height);
+      scroll-padding-bottom: calc(var(--bottombar-height) + env(safe-area-inset-bottom));
+    }
+
+    @media (min-width: 640px) {
+      html {
+        scroll-padding-top: var(--shell-height);
+        scroll-padding-bottom: 0px;
+      }
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+
+    /* A skeleton does not pulse and a spinner does not turn; each has the word "Loading". */
+    [data-slot='skeleton'],
+    [data-slot='spinner'] {
+      animation: none !important;
+    }
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-weight: 400;
+  }
+}
+
+/*
+ * Touch. Below 640 px, and at any width when the main
+ * pointer is coarse, every control is at least 44 px high, and a control that is only
+ * an icon is at least 44 px wide too. The rule is on the elements, so it holds
+ * whatever component draws them, a link drawn as a button (`data-slot='button'`)
+ * included. A checkbox keeps its box and sits in a <label data-touch>; any other
+ * link that is a control carries data-touch itself.
+ */
+@media (max-width: 639.98px), (pointer: coarse) {
+  button:not([role='checkbox'], [role='switch']),
+  select,
+  input:not([type='checkbox'], [type='radio']),
+  [role='button'],
+  [role='menuitem'],
+  [role='menuitemradio'],
+  [role='menuitemcheckbox'],
+  [data-slot='button'],
+  [data-touch] {
+    min-height: var(--touch-target);
+  }
+
+  [data-size^='icon'],
+  [data-slot='dialog-close'],
+  [data-slot='sheet-close'] {
+    min-width: var(--touch-target);
+  }
+}
+
+/* Below 640 px a field is 16 px, so iOS does not zoom the page when one takes focus. */
+@media (max-width: 639.98px) {
+  input,
+  textarea,
+  select {
+    font-size: 1rem;
+  }
+}
+
+/*
+ * Under the bar of sections of Ship, Marketing and Reference: the views
+ * that fill the screen under the header take the bar's height off too. On a phone the
+ * bar is a touch target high.
+ */
+@utility section-frame {
+  --shell-height: calc(var(--header-height) + var(--tabbar-height) + var(--sectionbar-height));
+}
+
+@media (max-width: 639.98px), (pointer: coarse) {
+  :root {
+    --sectionbar-height: var(--touch-target);
+  }
+}
+
+/* A single-column page: at most 64rem of content, centred, with the page gutter. */
+@utility page {
+  width: 100%;
+  max-width: calc(var(--page-width) + 3rem);
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+  @media (max-width: 639.98px) {
+    padding-inline: 1rem;
+  }
+}
+
+/* A link in running text: always underlined, in its own colour. */
+@utility link {
+  color: var(--primary);
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
+  &:hover {
+    color: var(--primary-hover);
+    text-decoration-thickness: 2px;
+  }
+}
+
+/* The focus ring 2 px inside, where an outer ring would be cut off. */
+@utility ring-inside {
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
+/* A heading inside a view: small, upper case by CSS, quiet. */
+@utility section-label {
+  font-size: var(--text-small);
+  line-height: var(--text-small--line-height);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/*
+ * A doc rendered from Markdown: the reading size, lines at most
+ * 48rem wide, headings in the body face at 600, lists with their marks, quotes with a
+ * hairline at their start, tables with hairlines, and inline code in mono on the surface.
+ */
+@utility doc-prose {
+  & :where(p, ul, ol, blockquote, table, dl, details) {
+    margin-block: 0.75rem;
+  }
+  & :where(h3, h4, h5, h6) {
+    font-weight: 600;
+    margin-block: 1.5rem 0.5rem;
+  }
+  & :where(h3) {
+    font-size: var(--text-title);
+    line-height: var(--text-title--line-height);
+  }
+  & :where(h4) {
+    font-size: var(--text-lead);
+    line-height: var(--text-lead--line-height);
+  }
+  & :where(h5, h6) {
+    font-size: var(--text-reading);
+    line-height: var(--text-reading--line-height);
+  }
+  & :where(ul) {
+    list-style: disc;
+    padding-inline-start: 1.5rem;
+  }
+  & :where(ol) {
+    list-style: decimal;
+    padding-inline-start: 1.5rem;
+  }
+  & :where(li) {
+    margin-block: 0.25rem;
+  }
+  & :where(li:has(> [data-task])) {
+    list-style: none;
+    margin-inline-start: -1.25rem;
+  }
+  & :where(blockquote) {
+    border-inline-start: 3px solid var(--border-strong);
+    padding-inline-start: 0.75rem;
+    color: var(--foreground-soft);
+  }
+  & :where(:not(pre) > code) {
+    font-family: var(--font-code);
+    font-weight: 400;
+    font-size: 0.875em;
+    background: var(--muted);
+    border-radius: 3px;
+    padding: 0.0625rem 0.25rem;
+  }
+  & :where(table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+  }
+  & :where(th, td) {
+    border-bottom: 1px solid var(--border);
+    padding: 0.375rem 0.75rem 0.375rem 0;
+    text-align: start;
+    vertical-align: top;
+  }
+  & :where(th) {
+    font-weight: 600;
+  }
+  & :where(hr) {
+    border-color: var(--border);
+    margin-block: 1.5rem;
+  }
+  & :where(section[data-section]) {
+    border-top: 1px solid var(--border);
+    padding-top: 0.5rem;
+    margin-top: 1rem;
+  }
+  & :where(section[data-section]:first-child) {
+    border-top: 0;
+    margin-top: 0;
+  }
+  & :where(section[data-section] > h3) {
+    margin-block: 0.25rem;
+  }
+}
