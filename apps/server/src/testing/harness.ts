@@ -412,6 +412,37 @@ export async function buildWorld(t: TestServer): Promise<World> {
   return { ws: 'acme', otherWs: 'globex', ...sessions, app, web, ids };
 }
 
+/** One block of a server-sent event stream: a message, or a comment line. */
+export interface StreamBlock {
+  id?: string;
+  event?: string;
+  data?: string;
+  comment?: string;
+}
+
+/** How long a test waits for something to arrive on a stream. Generous, for a busy machine. */
+const STREAM_WAIT_MS = 20_000;
+
+/** What one read of a response body gives. */
+interface StreamChunk {
+  done: boolean;
+  value?: Uint8Array | undefined;
+}
+
+/** An open stream, read block by block. */
+export interface OpenStream {
+  readonly response: Response;
+  /** The next block. Throws when none arrives in time, or the stream has ended. */
+  next(timeoutMs?: number): Promise<StreamBlock>;
+  /** The next block that is a message, skipping comment lines. */
+  nextMessage(timeoutMs?: number): Promise<StreamBlock>;
+  /** Resolves with true when no message arrives within `ms`. Comment lines do not count. */
+  quiet(ms: number): Promise<boolean>;
+  /** Resolves when the server has ended the stream. */
+  ended(timeoutMs?: number): Promise<void>;
+  close(): Promise<void>;
+}
+
 /** Opens `GET /workspaces/:ws/stream` the way a browser's EventSource does. */
 export async function openStream(
   t: TestServer,

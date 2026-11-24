@@ -9,11 +9,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DataDirInUseError } from './local/data-dir.js';
 import { memoryLogger, silentLogger } from './log.js';
 import type { ReadyMessage } from './main.js';
+import {
+  describeStart,
+  ListenError,
+  startLocal,
+  startServer,
+  type RunningServer,
+} from './start.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 /** For the starts that are not about jobs: without the job runner a start is much quicker. */
 const quick = { logger: silentLogger, webDir: null, jobs: false } as const;
+
+/** These tests start whole servers on disk, which takes a while on a busy machine. */
+const SLOW = 240_000;
 
 /** A GET over a real socket, with whatever Host header the test wants. */
 function rawGet(
