@@ -1,6 +1,18 @@
 import path from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
+import { messages } from './src/messages';
+import { navigationDenylist } from './src/pwa/server-routes';
+
+/**
+ * Where the Turnkeel server runs in development. The dev server passes `/api` and
+ * `/healthz` on to it, so the page and the API share an origin as they do when the
+ * server serves the built app.
+ */
+const server = process.env.TURNKEEL_DEV_SERVER ?? 'http://127.0.0.1:4400';
 
 /**
  * The packages that only Mermaid brings in. A chunk is a diagram's when it
