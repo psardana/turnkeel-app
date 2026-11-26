@@ -22,6 +22,7 @@ import { useSession, useWorkspace } from '@/features/session/session';
 import { api, errorMessage, seg } from '@/lib/api';
 import { rolesToInvite } from '@/lib/permissions';
 import { keys } from '@/lib/queries';
+import { useReturnFocus } from '@/lib/return-focus';
 import { messages } from '@/messages';
 
 /**

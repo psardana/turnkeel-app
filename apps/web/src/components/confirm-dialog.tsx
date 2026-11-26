@@ -9,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useReturnFocus } from '@/lib/return-focus';
 import { messages } from '@/messages';
 
 /** Asks before something that cannot be taken back. Escape and Cancel both leave. */

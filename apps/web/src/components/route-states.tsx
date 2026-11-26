@@ -3,6 +3,7 @@ import { Link, useRouter, type ErrorComponentProps } from '@tanstack/react-route
 import { Brand } from '@/components/brand';
 import { CenteredPage, ErrorState, LoadingState } from '@/components/states';
 import { Button } from '@/components/ui/button';
+import { ApiError } from '@/lib/api';
 import { messages } from '@/messages';
 
 /** While a route loads what it needs. */

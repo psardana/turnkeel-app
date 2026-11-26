@@ -19,6 +19,7 @@ import { authClient } from '@/lib/auth-client';
 import { formatDateTime } from '@/lib/dates';
 import { refusal } from '@/lib/form-errors';
 import { keys, meQuery, serverQuery } from '@/lib/queries';
+import { handleFrom } from '@/lib/slug';
 import { messages } from '@/messages';
 
 /** The token as the link carries it, read from the address itself so that no parsing changes it. */

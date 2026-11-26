@@ -1,6 +1,8 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { EmptyState } from '@/components/states';
 import { useWorkspace } from '@/features/session/session';
+import { abilitiesIn } from '@/lib/permissions';
+import { meQuery } from '@/lib/queries';
 import { messages } from '@/messages';
 import { workspaceHome } from '@/navigation';
 

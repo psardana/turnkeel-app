@@ -192,6 +192,93 @@ test('without the local session the app says how to get in', async ({ browser, l
   await context.close();
 });
 
+test('Activity pages by seq: older lines load on request, down to the first', async ({
+  page,
+  enter,
+  local,
+}) => {
+  await enter(page);
+  // More events than one page holds, made through the API with the page's session.
+  for (let index = 0; index < 55; index += 1) {
+    const project = uniqueProject();
+    const answer = await page.request.post(`${local.url}/api/v1/workspaces/my-workspace/projects`, {
+      headers: { Origin: local.url },
+      data: {
+        name: `${project.name} ${index}`,
+        key: project.key,
+        slug: `paged-${project.key.toLowerCase()}-${index}`,
+      },
+    });
+    expect(answer.status(), await answer.text()).toBe(201);
+  }
+
+  await page.goto('/w/my-workspace/activity');
+  const lines = page.getByRole('main').getByRole('listitem');
+  await expect(lines).toHaveCount(50);
+  await expect(page.getByText('This is where the log begins.')).toHaveCount(0);
+
+  // Page after page, until the log's first line is there.
+  const older = page.getByRole('button', { name: 'Show older' });
+  let shown = 50;
+  while (await older.isVisible()) {
+    await older.click();
+    await expect(async () => {
+      expect(await lines.count()).toBeGreaterThan(shown);
+    }).toPass();
+    shown = await lines.count();
+    if (await page.getByText('This is where the log begins.').isVisible()) break;
+  }
+  expect(shown).toBeGreaterThanOrEqual(57);
+  await expect(lines.last()).toContainText('created the workspace');
+  await expect(page.getByText('This is where the log begins.')).toBeVisible();
+
+  // No line is there twice.
+  const seqs = await lines.evaluateAll((items) =>
+    items.map((item) => item.getAttribute('data-seq')),
+  );
+  expect(new Set(seqs).size).toBe(seqs.length);
+});
+
+test('a refusal from the server is shown in the form, and what was typed stays', async ({
+  page,
+  enter,
+}) => {
+  await enter(page);
+  await page.goto('/w/my-workspace/settings/projects/new');
+  // The server says no, whatever the page thought the role allows.
+  await page.route('**/api/v1/workspaces/my-workspace/projects', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    await route.fulfill({
+      status: 403,
+      contentType: 'application/json',
+      headers: { 'X-Request-Id': 'test-request' },
+      body: JSON.stringify({
+        error: { code: 'forbidden', message: 'This needs the role Owner or Admin.', rule: 'R7' },
+      }),
+    });
+  });
+  const project = uniqueProject();
+  await page.getByLabel('Name').fill(project.name);
+  await page.getByLabel('Key').fill(project.key);
+  await page.getByRole('button', { name: 'Create project' }).click();
+
+  await expect(page.getByRole('alert')).toContainText('This needs the role Owner or Admin.');
+  await expect(page).toHaveURL(/\/settings\/projects\/new$/);
+  await expect(page.getByLabel('Name')).toHaveValue(project.name);
+  await expect(page.getByRole('button', { name: 'Create project' })).toBeEnabled();
+
+  // A key that is taken is said at the field it is about.
+  await page.unroute('**/api/v1/workspaces/my-workspace/projects');
+  await page.getByRole('button', { name: 'Create project' }).click();
+  await expect(page).toHaveURL(/\/settings\/projects$/);
+  await page.goto('/w/my-workspace/settings/projects/new');
+  await page.getByLabel('Name').fill(`${project.name} again`);
+  await page.getByLabel('Key').fill(project.key);
+  await page.getByRole('button', { name: 'Create project' }).click();
+  await expect(page.getByLabel('Key')).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByLabel('Key')).toHaveAccessibleDescription(/key/i);
+});
+
 test('menus and dialogs work from the keyboard', async ({ page, enter, isMobile }) => {
   test.skip(isMobile, 'A phone has no keyboard to tab with.');
   await enter(page);

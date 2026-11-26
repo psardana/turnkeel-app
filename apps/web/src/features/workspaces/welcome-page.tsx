@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { AppFrame } from '@/components/app-header';
 import { Field, FormError } from '@/components/form';
 import { Button } from '@/components/ui/button';
@@ -6,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useSession } from '@/features/session/session';
 import { PlainHeader } from '@/features/sign-in/sign-in-page';
 import { authClient } from '@/lib/auth-client';
+import { keys } from '@/lib/queries';
 import { messages } from '@/messages';
 
 type WorkspaceField = 'product' | 'name' | 'slug' | 'key' | 'handle';

@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { WelcomePage } from '@/features/workspaces/welcome-page';
+import { meQuery } from '@/lib/queries';
 
 /** First run: a person who is in no workspace yet. */
 export const Route = createFileRoute('/_app/welcome')({
