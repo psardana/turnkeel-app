@@ -128,6 +128,8 @@ export const messages = {
   notOpened: 'The browser could not be opened from here.',
   openOnce: (url: string) => `Open this address once to use Turnkeel in your browser: ${url}`,
   anotherOnce: (url: string) => `Another address, which also works once: ${url}`,
+  productName: 'Turnkeel',
+  handoverLink: 'Open Turnkeel',
   howToStop: 'Press Ctrl-C to stop Turnkeel.',
   howToGetAnother: 'Press Enter for another one-time address, for a second browser.',
 } as const;

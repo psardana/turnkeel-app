@@ -31,6 +31,9 @@ export function canSignInWith(email: string): boolean {
   return !email.trim().toLowerCase().endsWith(NO_SIGN_IN_SUFFIX);
 }
 
+/** The end of an address that nobody can sign in with. */
+export const NO_SIGN_IN_SUFFIX = '.invalid';
+
 /** What decides whether an invitation can be accepted. */
 export interface InvitationAcceptance {
   readonly invitation: {

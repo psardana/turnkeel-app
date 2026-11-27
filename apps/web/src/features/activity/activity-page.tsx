@@ -4,10 +4,12 @@ import { Field } from '@/components/form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { useSession, useWorkspace } from '@/features/session/session';
 import { useStreamState } from '@/features/stream/use-workspace-stream';
 import { actorsOf, collapseRuns, groupByDay, mergeEvents, type ActivityRow } from '@/lib/activity';
 import { API_BASE, seg } from '@/lib/api';
 import { dayBoundary, formatDateTime, formatDayHeading, formatTime } from '@/lib/dates';
+import { projectsWithActivity } from '@/lib/permissions';
 import { fetchEvents, keys, membersQuery, projectsQuery, type EventFilters } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 import { messages } from '@/messages';
@@ -402,6 +404,16 @@ export function ActivityPage() {
   // and only a project where their role reads events: not one where they are Tester.
   // For them the other projects are not here at all.
   const needsProject = !abilities.readEvents;
+  const { me } = useSession();
+  const workspaceId = workspace.entry.workspace.id;
+  // With a workspace role this leaves out only a project where a project role of
+  // their own, Tester, stands in its place.
+  const offered = useMemo(
+    () => projectsWithActivity(me, workspaceId, projects.data ?? []),
+    [me, workspaceId, projects.data],
+  );
+  const project = offered.find((candidate) => candidate.key === search.project);
+  const firstProject = offered[0];
 
   useEffect(() => {
     if (!projects.isSuccess) return;

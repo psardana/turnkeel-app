@@ -4,8 +4,10 @@ import { createServer, type AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createUser } from '@turnkeel/db';
 import type { Me, Project } from '@turnkeel/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ConfigError, loadConfig } from './config.js';
 import { DataDirInUseError } from './local/data-dir.js';
 import { memoryLogger, silentLogger } from './log.js';
 import type { ReadyMessage } from './main.js';
@@ -406,6 +408,86 @@ describe('startServer with sign-in, over a real socket', () => {
           expect(statuses).toEqual([200, 200, 200, 200, 200, 200, 200]);
         } finally {
           await proxied.stop();
+        }
+      } finally {
+        rmSync(dataDir, { recursive: true, force: true });
+      }
+    },
+    SLOW,
+  );
+});
+
+describe('sign-in turned on over a data folder that local mode made', () => {
+  const signInOn = (dataDir: string) =>
+    startServer(
+      {
+        ...loadConfig({
+          TURNKEEL_PUBLIC_URL: 'http://localhost:4400',
+          TURNKEEL_AUTH_SECRET: 'test-secret-test-secret-test-secret-1234',
+          TURNKEEL_DATA_DIR: dataDir,
+        }),
+        port: 0,
+      },
+      quick,
+    );
+
+  it(
+    'does not start, says why and what to do, and leaves the folder usable in local mode',
+    async () => {
+      const dataDir = mkdtempSync(path.join(os.tmpdir(), 'turnkeel-start-switch-'));
+      try {
+        const local = await startLocal({ port: 0, dataDir, demo: true, ...quick });
+        await local.stop();
+
+        const refused = await signInOn(dataDir).then(
+          () => null,
+          (error: unknown) => error,
+        );
+        expect(refused).toBeInstanceOf(ConfigError);
+        expect((refused as ConfigError).message).toContain(
+          'this database was made by local mode and nobody could sign in to it',
+        );
+        expect((refused as ConfigError).message).toContain('start without TURNKEEL_PUBLIC_URL');
+        // The refused start let go of the folder.
+        expect(existsSync(path.join(dataDir, 'server.lock'))).toBe(false);
+
+        const again = await startLocal({ port: 0, dataDir, ...quick });
+        try {
+          const cookie = await exchange(again.oneTimeUrl!);
+          const me = (await (
+            await fetch(`${again.url}/api/v1/me`, { headers: { cookie } })
+          ).json()) as Me;
+          // A data folder that holds the demo keeps it at a start without --demo.
+          expect(me.workspaces.map((entry) => entry.workspace.slug)).toEqual(['demo']);
+        } finally {
+          await again.stop();
+        }
+      } finally {
+        rmSync(dataDir, { recursive: true, force: true });
+      }
+    },
+    SLOW,
+  );
+
+  it(
+    'a database with people in it starts with sign-in again after one start in local mode',
+    async () => {
+      const dataDir = mkdtempSync(path.join(os.tmpdir(), 'turnkeel-start-back-'));
+      try {
+        // A server with sign-in, and one person who has signed in.
+        const first = await signInOn(dataDir);
+        await createUser(first.runtime.database.db, { name: 'Olive', email: 'olive@example.com' });
+        await first.stop();
+        // Started once without TURNKEEL_PUBLIC_URL, by mistake: the local owner's account is made.
+        const local = await startLocal({ port: 0, dataDir, ...quick });
+        await local.stop();
+
+        const back = await signInOn(dataDir);
+        try {
+          expect(back.mode).toBe('server');
+          expect((await fetch(`http://127.0.0.1:${back.port}/healthz`)).status).toBe(200);
+        } finally {
+          await back.stop();
         }
       } finally {
         rmSync(dataDir, { recursive: true, force: true });

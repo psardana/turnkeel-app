@@ -10,7 +10,9 @@ import { Input } from '@/components/ui/input';
 import { useWorkspace } from '@/features/session/session';
 import { api, seg } from '@/lib/api';
 import { fieldErrors, refusal } from '@/lib/form-errors';
+import { keys, serverQuery } from '@/lib/queries';
 import { messages } from '@/messages';
+import { UnverifiedSignInNote } from './unverified-sign-in';
 
 type SettingsField = 'name' | 'slug';
 

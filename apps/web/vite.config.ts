@@ -4,6 +4,7 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { DEV_PORT, proxiedOrigin } from './src/dev/proxy-origin';
 import { messages } from './src/messages';
 import { navigationDenylist } from './src/pwa/server-routes';
 

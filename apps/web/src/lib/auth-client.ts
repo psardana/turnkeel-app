@@ -1,6 +1,7 @@
 import { passkeyClient } from '@better-auth/passkey/client';
 import { createAuthClient } from 'better-auth/client';
 import { magicLinkClient } from 'better-auth/client/plugins';
+import { messages } from '@/messages';
 
 /**
  * The browser side of sign-in. The server's sign-in routes are Better Auth's

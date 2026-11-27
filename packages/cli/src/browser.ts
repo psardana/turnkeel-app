@@ -1,4 +1,8 @@
 import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { messages } from './messages.js';
 
 /**
  * The program that opens something in the person's browser on each system. `target`
@@ -15,6 +19,48 @@ export function browserCommand(
   }
   return { command: 'xdg-open', args: [target] };
 }
+
+/**
+ * Whether the address is handed to the browser in a file and not as an argument.
+ *
+ * The one-time URL carries the code that gives a browser the local session. The
+ * arguments of a program can be read by every account on the machine while it runs,
+ * so on macOS and Windows the opener is given the path of a page that only this
+ * account can read, and that page sends the browser on.
+ *
+ * Elsewhere the address stays an argument. A browser installed as a Snap or a Flatpak,
+ * which is the usual one on several Linux desktops, cannot read a file in a private
+ * folder of this account, and would show an error in place of Turnkeel.
+ * `--no-open` prints the address and starts no program with it.
+ */
+export function handsOverByFile(platform: NodeJS.Platform): boolean {
+  return platform === 'darwin' || platform === 'win32';
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+/** The page that sends the browser on to `url`, with a link for a browser that does not go by itself. */
+export function handoverPage(url: string): string {
+  const address = escapeHtml(url);
+  return [
+    '<!doctype html>',
+    '<meta charset="utf-8">',
+    `<title>${escapeHtml(messages.productName)}</title>`,
+    `<meta http-equiv="refresh" content="0;url=${address}">`,
+    `<a href="${address}">${escapeHtml(messages.handoverLink)}</a>`,
+    '',
+  ].join('\n');
+}
+
+/** How long the page stays on disk. The browser reads it within a moment of being started. */
+export const HANDOVER_FILE_MS = 30_000;
 
 /**
  * Writes the page into a new folder that only this account can enter, and returns its

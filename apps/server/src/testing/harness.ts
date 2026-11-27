@@ -32,6 +32,14 @@ export const LOCAL_URL = 'http://127.0.0.1:4400';
  */
 export const TEST_CLIENT_ADDRESS_HEADER = 'x-test-client-address';
 
+let clientAddresses = 0;
+
+/** An address no other request of this test run has used. */
+function freshClientAddress(): string {
+  clientAddresses += 1;
+  return `10.${(clientAddresses >> 16) & 255}.${(clientAddresses >> 8) & 255}.${clientAddresses & 255}`;
+}
+
 /** A signed-in person, or the local owner: the Cookie header their requests carry. */
 export interface Session {
   cookie: string;
