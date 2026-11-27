@@ -1,0 +1,28 @@
+# What the image build does not need, or must not see.
+.git
+.github
+**/node_modules
+**/dist
+**/coverage
+**/*.tgz
+**/*.tsbuildinfo
+
+# Local data and secrets.
+.env
+.env.*
+!.env.example
+.turnkeel-data
+**/*.pem
+**/*.p8
+**/*.p12
+**/*.key
+
+# Tests in the browser and what they leave behind.
+e2e
+**/playwright-report
+**/test-results
+
+# Editors and the OS.
+.DS_Store
+.idea
+.vscode
