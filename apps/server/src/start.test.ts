@@ -76,6 +76,20 @@ function rawGetOn(
   });
 }
 
+function urlPath(url: string): string {
+  const parsed = new URL(url);
+  return `${parsed.pathname}${parsed.search}`;
+}
+
+/** Whether this machine has the address, which a machine without IPv6 does not for `::1`. */
+function canListenOn(address: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = createServer();
+    probe.once('error', () => resolve(false));
+    probe.listen(0, address, () => probe.close(() => resolve(true)));
+  });
+}
+
 /** Opens the one-time URL and returns the Cookie header for what follows. */
 async function exchange(oneTimeUrl: string): Promise<string> {
   const response = await fetch(oneTimeUrl, { redirect: 'manual' });
@@ -302,6 +316,139 @@ describe.skipIf(process.platform === 'win32')('startLocal on a data folder made 
         const cookie = await exchange(server.oneTimeUrl!);
         const me = await fetch(`${server.url}/api/v1/me`, { headers: { cookie } });
         expect(me.status).toBe(200);
+      } finally {
+        await server.stop();
+        rmSync(dataDir, { recursive: true, force: true });
+      }
+    },
+    SLOW,
+  );
+});
+
+describe('startServer with sign-in, over a real socket', () => {
+  const ask = (server: RunningServer, request: number) =>
+    fetch(`http://127.0.0.1:${server.port}/api/auth/sign-in/magic-link`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: 'http://localhost:4400',
+        // What a client sends to be counted as someone else each time.
+        'x-forwarded-for': `198.51.100.${request}`,
+        'x-turnkeel-client-ip': `198.51.100.${request}`,
+      },
+      body: JSON.stringify({ email: `nobody-${request}@example.com`, callbackURL: '/' }),
+    }).then((response) => response.status);
+
+  const start = (dataDir: string, env: Record<string, string> = {}) =>
+    startServer(
+      {
+        ...loadConfig({
+          TURNKEEL_PUBLIC_URL: 'http://localhost:4400',
+          TURNKEEL_AUTH_SECRET: 'test-secret-test-secret-test-secret-1234',
+          TURNKEEL_DATA_DIR: dataDir,
+          ...env,
+        }),
+        port: 0,
+      },
+      quick,
+    );
+
+  it(
+    'names the public address as the one to open, and the bound address without a link',
+    async () => {
+      const dataDir = mkdtempSync(path.join(os.tmpdir(), 'turnkeel-start-lines-'));
+      try {
+        const server = await start(dataDir);
+        try {
+          const logger = memoryLogger();
+          describeStart(server, logger);
+          expect(logger.lines).toContain(
+            `Turnkeel is listening on ${server.host}, port ${server.port}.`,
+          );
+          expect(logger.lines).toContain(
+            'Sign-in is on. Open Turnkeel at http://localhost:4400 (TURNKEEL_PUBLIC_URL). Sign-in works only at that address.',
+          );
+          // A browser that opened the bound address could not sign in there.
+          expect(logger.lines.join('\n')).not.toContain(`http://${server.host}:`);
+        } finally {
+          await server.stop();
+        }
+      } finally {
+        rmSync(dataDir, { recursive: true, force: true });
+      }
+    },
+    SLOW,
+  );
+
+  it(
+    'counts sign-in requests under the address of the socket, and believes X-Forwarded-For only from a trusted proxy',
+    async () => {
+      const dataDir = mkdtempSync(path.join(os.tmpdir(), 'turnkeel-start-limit-'));
+      try {
+        // No proxy is trusted: every request is this machine's, whatever it claims.
+        const direct = await start(dataDir);
+        try {
+          const statuses: number[] = [];
+          for (let request = 1; request <= 6; request += 1)
+            statuses.push(await ask(direct, request));
+          expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
+        } finally {
+          await direct.stop();
+        }
+
+        // This machine is a trusted proxy: the address it passes on is the client's.
+        const proxied = await start(dataDir, { TURNKEEL_TRUSTED_PROXIES: '127.0.0.1,::1' });
+        try {
+          const statuses: number[] = [];
+          for (let request = 11; request <= 17; request += 1) {
+            statuses.push(await ask(proxied, request));
+          }
+          expect(statuses).toEqual([200, 200, 200, 200, 200, 200, 200]);
+        } finally {
+          await proxied.stop();
+        }
+      } finally {
+        rmSync(dataDir, { recursive: true, force: true });
+      }
+    },
+    SLOW,
+  );
+});
+
+describe('startLocal on the IPv6 loopback address', () => {
+  it(
+    'hands out an address that the server answers at, with localhost as its name',
+    async (context) => {
+      if (!(await canListenOn('::1'))) return context.skip();
+      const dataDir = mkdtempSync(path.join(os.tmpdir(), 'turnkeel-start-v6-'));
+      const logger = memoryLogger();
+      const server = await startLocal({ port: 0, dataDir, host: '::1', ...quick, logger });
+      try {
+        expect(server.host).toBe('::1');
+        expect(server.url).toBe(`http://localhost:${server.port}`);
+        expect(server.oneTimeUrl).toMatch(
+          new RegExp(`^http://localhost:${server.port}/api/v1/local/session\\?code=`),
+        );
+        // Over the socket it listens on, named the way the one-time URL names it.
+        const opened = await rawGetOn('::1', server.port, urlPath(server.oneTimeUrl!), {
+          host: `localhost:${server.port}`,
+        });
+        expect(opened.status).toBe(302);
+        expect(opened.cookie).toContain('turnkeel_local=');
+        const me = await rawGetOn('::1', server.port, '/api/v1/me', {
+          host: `localhost:${server.port}`,
+          cookie: opened.cookie,
+        });
+        expect(me.status).toBe(200);
+        expect((JSON.parse(me.body) as Me).local).toBe(true);
+        // The address as a URL writes it is still not one of the two names of R33.
+        const bracketed = await rawGetOn('::1', server.port, '/healthz', {
+          host: `[::1]:${server.port}`,
+        });
+        expect(bracketed.status).toBe(403);
+
+        describeStart(server, logger);
+        expect(logger.lines).toContain(`Turnkeel is listening at http://localhost:${server.port}`);
       } finally {
         await server.stop();
         rmSync(dataDir, { recursive: true, force: true });

@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import { AGPL, MIT, packageRules } from '../tooling/boundaries.js';
 
 /**
  * Proves that the published packages install and work outside this repository.
@@ -61,6 +62,20 @@ const particular = {
     ],
   },
 };
+
+/**
+ * The published packages, the ones tooling/boundaries.js marks `published`.
+ * @type {{ name: string, dir: string, license: string, bin?: string, holds: string[] }[]}
+ */
+const packages = packageRules
+  .filter((rule) => rule.published)
+  .map((rule) => ({
+    name: rule.name,
+    dir: rule.dir,
+    license: rule.license,
+    holds: library,
+    ...particular[rule.name],
+  }));
 
 /**
  * The first words of each licence text.

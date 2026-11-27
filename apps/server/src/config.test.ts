@@ -1,6 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { ConfigError, DEFAULT_MAX_FILE_BYTES, isLocalModeHost, loadConfig } from './config.js';
 
 const secret = 'a-secret-that-is-long-enough-to-be-one';
 const signIn = {
@@ -119,6 +120,19 @@ describe('configuration from the environment', () => {
     expect(withSignIn.notices).toContain(
       'TURNKEEL_DEMO is set and has no effect, because sign-in is on. The demo loads only in local mode.',
     );
+  });
+
+  it('trusts no proxy unless TURNKEEL_TRUSTED_PROXIES names one, and refuses what is not an address or a range', () => {
+    expect(loadConfig({}).trustedProxies).toEqual([]);
+    for (const value of ['proxy.example.com', '10.0.0.0/40', '10.0.0.1 10.0.0.2', 'true']) {
+      const problems = problemsOf({ ...signIn, TURNKEEL_TRUSTED_PROXIES: value });
+      expect(problems, value).toEqual([
+        'TURNKEEL_TRUSTED_PROXIES must be a list of addresses or ranges with commas between them, such as 10.0.0.0/8,192.168.1.7.',
+      ]);
+    }
+    expect(loadConfig({ TURNKEEL_TRUSTED_PROXIES: '10.0.0.1' }).notices).toEqual([
+      'TURNKEEL_TRUSTED_PROXIES is set and has no effect, because sign-in is off. Set TURNKEEL_PUBLIC_URL to turn it on.',
+    ]);
   });
 
   it('uses S3_ENDPOINT for browsers too when S3_PUBLIC_ENDPOINT is not set', () => {

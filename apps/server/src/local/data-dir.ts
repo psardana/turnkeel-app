@@ -43,6 +43,11 @@ function makePrivate(folder: string, warn: (line: string) => void): void {
   }
 }
 
+export interface ClaimDataDirOptions {
+  /** Hears about a data folder that other accounts may be able to read. */
+  warn?: (line: string) => void;
+}
+
 /**
  * Makes the data folder and the database's folder inside it, open to the OS user
  * only, and marks the data folder as in use by this process. PGlite keeps its data

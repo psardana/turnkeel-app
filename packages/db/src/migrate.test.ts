@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
+import { connect, createServer, type AddressInfo, type Socket } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sql } from 'drizzle-orm';

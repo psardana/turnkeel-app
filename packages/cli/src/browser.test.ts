@@ -1,4 +1,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const url = 'http://127.0.0.1:4400/api/v1/local/session?code=abc&next=1';
 

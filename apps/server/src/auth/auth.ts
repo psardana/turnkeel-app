@@ -6,10 +6,12 @@ import {
   schema,
   type Database,
 } from '@turnkeel/db';
+import { DISPLAY_NAME_MAX } from '@turnkeel/protocol';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins';
 import type { Config } from '../config.js';
+import { CLIENT_ADDRESS_HEADER } from '../http/client-address.js';
 import type { Logger } from '../log.js';
 import type { Mailer } from '../mail/mailer.js';
 import { messages } from '../messages.js';
@@ -19,6 +21,65 @@ export const SIGN_IN_LINK_MINUTES = 10;
 
 /** How many sign-in links go to one address within `SIGN_IN_LINK_LIMIT_MINUTES`. Further requests get the same answer and no mail. */
 export const SIGN_IN_LINKS_PER_ADDRESS = 3;
+export const SIGN_IN_LINK_LIMIT_MINUTES = 10;
+
+/** How many addresses the count of sent links remembers at most. */
+const LINK_LIMIT_ADDRESSES = 10_000;
+
+/**
+ * Counts the sign-in links sent to each address, in memory. The limit on requests
+ * per client address (Better Auth's) does not stop someone who uses many addresses
+ * from filling one person's mailbox through the server's own mail; this does. Each
+ * server process counts for itself.
+ */
+export function createLinkLimit(
+  max: number = SIGN_IN_LINKS_PER_ADDRESS,
+  windowMs: number = SIGN_IN_LINK_LIMIT_MINUTES * 60_000,
+  now: () => number = Date.now,
+) {
+  const sent = new Map<string, number[]>();
+  return {
+    /** True when a link may go to this address now, and counts it. False when the address has had its share. */
+    take(email: string): boolean {
+      const key = email.trim().toLowerCase();
+      const from = now() - windowMs;
+      const recent = (sent.get(key) ?? []).filter((at) => at > from);
+      if (recent.length >= max) {
+        sent.set(key, recent);
+        return false;
+      }
+      // Put back at the end, so the map's order is the order of last use.
+      sent.delete(key);
+      sent.set(key, [...recent, now()]);
+      if (sent.size > LINK_LIMIT_ADDRESSES) {
+        for (const [address, times] of sent) {
+          if (sent.size <= LINK_LIMIT_ADDRESSES) break;
+          if (address !== key && (times.at(-1) ?? 0) <= from) sent.delete(address);
+        }
+        for (const address of sent.keys()) {
+          if (sent.size <= LINK_LIMIT_ADDRESSES) break;
+          if (address !== key) sent.delete(address);
+        }
+      }
+      return true;
+    },
+  };
+}
+
+/**
+ * A display name as it is stored: one line, without control characters, at most
+ * `DISPLAY_NAME_MAX` characters. A name is typed by its owner and then shown to
+ * others, in the subject of the invitations they send and in every event they cause,
+ * so it is bounded where it is written.
+ */
+export function cleanDisplayName(name: string): string {
+  const oneLine = name
+    // Control characters, line and paragraph separators.
+    .replace(/[\p{Cc}\u2028\u2029]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return Array.from(oneLine).slice(0, DISPLAY_NAME_MAX).join('').trim();
+}
 
 /** The error code a refused sign-up carries. The sign-in page shows the sentence that comes
  * with it. */

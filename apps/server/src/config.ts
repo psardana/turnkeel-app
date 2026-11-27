@@ -1,6 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { DEFAULT_HOST, DEFAULT_PORT } from './defaults.js';
+import { parseTrustedProxy } from './http/client-address.js';
 import { messages } from './messages.js';
 
 /** Sign-in with one outside provider. */

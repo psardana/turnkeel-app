@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { schema } from '@turnkeel/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   bodyOf,
@@ -10,6 +11,7 @@ import {
   type Session,
   type TestServer,
 } from '../testing/harness.js';
+import { MAX_AUTH_BODY_BYTES, REQUEST_ID_HEADER, RESERVED_PREFIXES } from './app.js';
 
 const NOT_FOUND = { code: 'not_found', message: 'There is nothing at this address.' };
 const SHELL = '<!doctype html><title>Turnkeel</title><div id="root"></div>';

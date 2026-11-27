@@ -9,6 +9,7 @@ import { LOCAL_SESSION_COOKIE, LOCAL_SESSION_MAX_AGE_SECONDS } from '../auth/loc
 import { messages } from '../messages.js';
 import { eventRoutes } from '../routes/events.js';
 import { publicInvitationRoutes, workspaceRoutes } from '../routes/workspaces.js';
+import { withClientAddress } from './client-address.js';
 import type { AppEnv } from './context.js';
 import type { AppDeps } from './deps.js';
 import { HttpError, notFound } from './errors.js';
