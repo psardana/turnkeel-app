@@ -1,6 +1,8 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import manifest from '../package.json' with { type: 'json' };
+import { main, type MainDeps } from './index.js';
+import { messages } from './messages.js';
 
 const fakeServer = fileURLToPath(new URL('./testing/fake-server.mjs', import.meta.url));
 

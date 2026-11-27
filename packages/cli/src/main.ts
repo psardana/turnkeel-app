@@ -1,8 +1,43 @@
 import { execFile } from 'node:child_process';
+import { createInterface } from 'node:readline';
 import manifest from '../package.json' with { type: 'json' };
+import { parseArgs } from './args.js';
+import { openBrowser } from './browser.js';
+import { launch, type LaunchDeps, type Output } from './launcher.js';
 import { messages } from './messages.js';
+import { findServerEntry } from './server-entry.js';
 
 export type { Output } from './launcher.js';
+
+/** What the command needs from the process it runs in. Tests pass their own. */
+export interface MainDeps extends Omit<LaunchDeps, 'serverEntry'> {
+  /** The entry file of `@turnkeel/server`, or undefined when it is not installed. */
+  findServerEntry: () => string | undefined;
+  /** What the client commands need beside the output and the environment. */
+  client?: Omit<ClientDeps, 'output' | 'env' | 'version' | 'openBrowser'>;
+  /** Starts the importer process; a test passes its own. */
+  startImporter?: ImportDeps['start'];
+}
+
+/** Runs `claude agents --json --all` and gives its output. */
+function claudeAgents(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      'claude',
+      ['agents', '--json', '--all'],
+      { maxBuffer: 10 * 1024 * 1024 },
+      (error: Error | null, stdout: string) => {
+        if (error) reject(error);
+        else resolve(stdout);
+      },
+    );
+  });
+}
+
+const consoleOutput: Output = {
+  out: (line) => console.log(line),
+  err: (line) => console.error(line),
+};
 
 /** The process as the command finds it when a person runs it. */
 export function processDeps(): MainDeps {
