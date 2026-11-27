@@ -9,7 +9,9 @@ import { EmptyState, ErrorState, LoadingRows, PageHeader } from '@/components/st
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useSession, useWorkspace } from '@/features/session/session';
 import { useStreamState } from '@/features/stream/use-workspace-stream';
 import { actorsOf, collapseRuns, groupByDay, mergeEvents, type ActivityRow } from '@/lib/activity';

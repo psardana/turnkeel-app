@@ -7,6 +7,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
+import type { Me, Project, ProjectRole, ServerInfo, WorkspaceRole } from '@turnkeel/protocol';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BotIcon, HistoryIcon, ListChecksIcon, SquareKanbanIcon } from 'lucide-react';
@@ -77,6 +78,80 @@ afterEach(() => {
 });
 
 const WORKSPACE = testId(1);
+const PROJECT = testId(20);
+const stamp = { kind: 'user' as const, id: testId(10) };
+const server: ServerInfo = {
+  mode: 'local',
+  signIn: { magicLink: false, github: false, google: false, passkey: false },
+  mail: 'log',
+  openSignup: false,
+};
+
+function meWith(
+  role: WorkspaceRole | null,
+  projectRoles: Record<string, ProjectRole> = {},
+  demo = false,
+): Me {
+  return {
+    user: {
+      id: testId(10),
+      name: 'Pat',
+      email: 'pat@example.com',
+      emailVerified: true,
+      createdAt: '2026-11-11T09:00:00.000Z',
+    },
+    local: true,
+    canCreateWorkspace: false,
+    workspaces: [
+      {
+        workspace: {
+          id: WORKSPACE,
+          workspaceId: WORKSPACE,
+          createdAt: '2026-11-11T09:00:00.000Z',
+          createdBy: stamp,
+          updatedAt: '2026-11-11T09:00:00.000Z',
+          updatedBy: stamp,
+          name: 'Acme',
+          slug: 'acme',
+          baseCurrency: 'USD',
+          timeZone: 'UTC',
+          planning: { recurring: true, timeTracking: true, gantt: true, savedViews: true },
+          tabsOff: [],
+          tabsKeptAt: null,
+          demo,
+          deletedAt: null,
+        },
+        role,
+        handle: role === null ? null : 'pat',
+        projectRoles,
+        view: { hiddenTabs: [], introsSeen: [], start: 'new' },
+      },
+    ],
+  };
+}
+
+/** A project of the workspace, named `name`, that the owner may open. */
+function projectNamed(name: string, key: string): Project {
+  return {
+    id: PROJECT,
+    workspaceId: WORKSPACE,
+    createdAt: '2026-11-11T09:00:00.000Z',
+    createdBy: stamp,
+    updatedAt: '2026-11-11T09:00:00.000Z',
+    updatedBy: stamp,
+    name,
+    key,
+    slug: key.toLowerCase(),
+    kind: 'web',
+    launchDate: null,
+    launchMilestoneId: null,
+    locales: ['en'],
+    repoUrl: null,
+    shipsTo: [],
+    changelogPublic: false,
+    archivedAt: null,
+  };
+}
 
 describe('the tab bar', () => {
   it('is a nav of links, the current one marked, each named with its count in words', async () => {
@@ -339,6 +414,102 @@ describe('the shell', () => {
     const header = screen.getByRole('banner');
     const button = within(header).getByRole('button', { name: 'Workspace Acme' });
     expect(button.nextElementSibling).toHaveTextContent('Demo data');
+  });
+
+  describe('Remove demo data', () => {
+    it.each(['admin', 'member'] as const)(
+      'is not in the menu of an %s of the demo workspace',
+      async (role) => {
+        const user = userEvent.setup();
+        await renderShell(meWith(role, {}, true));
+        await user.click(screen.getByRole('button', { name: 'Workspace Acme' }));
+        const menu = screen.getByRole('menu');
+        expect(
+          within(menu).queryByRole('menuitem', { name: 'Remove demo data' }),
+        ).not.toBeInTheDocument();
+      },
+    );
+
+    it('is not in the menu of the Owner of a workspace that is not the demo', async () => {
+      const user = userEvent.setup();
+      await renderShell(meWith('owner'));
+      await user.click(screen.getByRole('button', { name: 'Workspace Acme' }));
+      expect(
+        within(screen.getByRole('menu')).queryByRole('menuitem', { name: 'Remove demo data' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('deletes the demo for its Owner, forgets it as the last workspace and goes to /', async () => {
+      const sent: { method: string; path: string }[] = [];
+      vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+        const url = new URL(String(input instanceof Request ? input.url : input), 'http://x');
+        sent.push({ method: init?.method ?? 'GET', path: url.pathname });
+        return Promise.resolve(
+          new Response(JSON.stringify({}), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      });
+      window.localStorage.setItem('turnkeel.workspace', 'acme');
+      const user = userEvent.setup();
+      const router = await renderShell(meWith('owner', {}, true));
+      await user.click(screen.getByRole('button', { name: 'Workspace Acme' }));
+      await user.click(
+        within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Remove demo data' }),
+      );
+      const confirm = screen.getByRole('alertdialog', { name: 'Remove the demo data?' });
+      await user.click(within(confirm).getByRole('button', { name: 'Remove demo data' }));
+      await vi.waitFor(() => expect(router.state.location.pathname).toBe('/'));
+      expect(sent).toContainEqual({ method: 'DELETE', path: '/api/v1/workspaces/acme' });
+      expect(window.localStorage.getItem('turnkeel.workspace')).toBeNull();
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('gives a name that may be cut off its whole text in title', async () => {
+    const user = userEvent.setup();
+    const long = 'A project whose name is long enough to need cutting somewhere';
+    await renderShell(meWith('owner'), [projectNamed(long, 'LONG')]);
+    const header = screen.getByRole('banner');
+    expect(within(header).getByRole('button', { name: 'Workspace Acme' })).toContainHTML(
+      'title="Acme"',
+    );
+    await user.click(within(header).getByRole('button', { name: /^Switch project/ }));
+    const entry = within(screen.getByRole('menu')).getByRole('menuitem', { name: /^A project/ });
+    expect(within(entry).getByText(long)).toHaveAttribute('title', long);
+  });
+
+  it('on a phone opens the project switcher in a sheet, which gives the focus back when closed', async () => {
+    phone = true;
+    const user = userEvent.setup();
+    await renderShell(meWith('owner'), [projectNamed('Tide tables', 'TIDE')]);
+    const trigger = screen.getByRole('button', { name: 'Switch project, now All projects' });
+    await user.click(trigger);
+    const sheet = screen.getByRole('dialog', { name: 'Project' });
+    expect(within(sheet).getByRole('button', { name: 'All projects' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    expect(within(sheet).getByRole('button', { name: /^Tide tables/ })).toBeInTheDocument();
+    expect(within(sheet).getByRole('link', { name: 'Manage projects' })).toBeInTheDocument();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("gives the focus to the new view's h1 after a menu entry changes the path", async () => {
+    const user = userEvent.setup();
+    const router = await renderShell(meWith('owner'));
+    await user.click(screen.getByRole('button', { name: 'Workspace Acme' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Members' }));
+    await vi.waitFor(() => {
+      expect(router.state.location.pathname).toBe('/w/acme/settings/members');
+    });
+    await vi.waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Page' })).toHaveFocus();
+    });
   });
 
   it('gives the focus back to the menu button when the path stays', async () => {

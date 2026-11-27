@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api';
+import { EmptyState, ErrorState, LoadingRows, LoadingState } from './states';
 
 describe('the states every view has', () => {
   it('loading says so to a screen reader', () => {

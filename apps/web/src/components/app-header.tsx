@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
 import { CheckIcon, ChevronDownIcon, PlusIcon, UserIcon } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Brand } from '@/components/brand';
 import { BottomBar } from '@/components/shell/bottom-bar';
 import { TabBar, type TabEntry } from '@/components/shell/tab-bar';
@@ -16,6 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   forgetWorkspace,
