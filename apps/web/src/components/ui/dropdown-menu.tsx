@@ -1,5 +1,19 @@
 import * as React from 'react';
 import { CheckIcon, ChevronRightIcon } from 'lucide-react';
+import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
+import { cn } from '@/lib/utils';
+
+/**
+ * A menu. Raised fill, a hairline and the raised shadow. A focused
+ * entry shows the surface fill and the focus ring 2 px inside, because the fill alone
+ * is too close to the raised fill to show which entry has focus. A disabled entry has
+ * quiet text and no lowered opacity.
+ */
+const menuBox =
+  'z-50 overflow-x-hidden overflow-y-auto rounded-lg border bg-popover p-1 text-body text-popover-foreground shadow-raised duration-200 data-[state=closed]:overflow-hidden data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0';
+
+const menuEntry =
+  "relative flex cursor-default items-center gap-1.5 rounded-md px-1.5 py-1 text-body select-none focus:bg-accent focus:text-accent-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring data-inset:pl-7 data-disabled:pointer-events-none data-disabled:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
 
 function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />;

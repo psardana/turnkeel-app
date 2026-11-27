@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { cn } from '@/lib/utils';
 
 /** A one-line field: ground fill, the field line, 6 px corners. The same in both themes. */
 function Input({ className, type, ...props }: React.ComponentProps<'input'>) {

@@ -4,6 +4,7 @@ import { PlusIcon } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, PageHeader } from '@/components/states';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useWorkspace } from '@/features/session/session';
 import { formatDate } from '@/lib/dates';
 import { projectsQuery } from '@/lib/queries';

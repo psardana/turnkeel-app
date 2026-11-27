@@ -1,6 +1,12 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { getRouteApi, Link } from '@tanstack/react-router';
+import { eventAreas, type Event, type EventArea } from '@turnkeel/protocol';
+import { ArrowUpIcon, DownloadIcon, ListFilterIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Field } from '@/components/form';
+import { HolderMark, type Holder } from '@/components/holder-mark';
+import { EmptyState, ErrorState, LoadingRows, PageHeader } from '@/components/states';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
@@ -9,11 +15,13 @@ import { useStreamState } from '@/features/stream/use-workspace-stream';
 import { actorsOf, collapseRuns, groupByDay, mergeEvents, type ActivityRow } from '@/lib/activity';
 import { API_BASE, seg } from '@/lib/api';
 import { dayBoundary, formatDateTime, formatDayHeading, formatTime } from '@/lib/dates';
+import { usePhone } from '@/lib/media';
 import { projectsWithActivity } from '@/lib/permissions';
 import { fetchEvents, keys, membersQuery, projectsQuery, type EventFilters } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 import { messages } from '@/messages';
 import { describeEvent, type DescribeContext, type ItemLink } from './describe';
+import type { ActivitySearch } from './search';
 
 const route = getRouteApi('/_app/w/$ws/activity');
 
@@ -214,6 +222,21 @@ function LoadingRow() {
     </div>
   );
 }
+
+type FilterPatch = Partial<Record<keyof ActivitySearch, string | undefined>>;
+
+/** How many filters are set. The project is set by the project switcher and is not one. */
+function setFilters(search: ActivitySearch): number {
+  return [search.area, search.actor, search.from, search.to].filter((value) => value !== undefined)
+    .length;
+}
+
+const clearPatch: FilterPatch = {
+  area: undefined,
+  actor: undefined,
+  from: undefined,
+  to: undefined,
+};
 
 /**
  * Area, who, and a range of days, each with a visible label. The project comes from
@@ -452,6 +475,27 @@ export function ActivityPage() {
     () => mergeEvents(events.data?.pages.map((page) => page.items) ?? []),
     [events.data],
   );
+  // New lines come in by themselves while the page is at its top. Further down they
+  // wait above the list, behind a button that says how many there are, so the line
+  // under the pointer does not move.
+  const atTop = useAtTop();
+  const heading = useRef<HTMLHeadingElement>(null);
+  const newest = loaded[0]?.seq ?? null;
+  const [ceiling, setCeiling] = useState<number | null>(newest);
+  const [ceilingFor, setCeilingFor] = useState(filters);
+  // Adjusted while rendering, as React advises for state that follows other values.
+  if (ceilingFor !== filters) {
+    setCeilingFor(filters);
+    setCeiling(null);
+  } else if (ceiling !== newest && (atTop || ceiling === null)) {
+    setCeiling(newest);
+  }
+  const shown = useMemo(
+    () => (ceiling === null ? loaded : loaded.filter((event) => event.seq <= ceiling)),
+    [loaded, ceiling],
+  );
+  const held = loaded.length - shown.length;
+  const days = useMemo(() => groupByDay(collapseRuns(shown)), [shown]);
 
   const context = useMemo<DescribeContext>(
     () => ({

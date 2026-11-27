@@ -1,5 +1,6 @@
 import { CircleXIcon, LoaderCircleIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ApiError, errorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { messages } from '@/messages';

@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { LoaderCircleIcon } from 'lucide-react';
 import { Slot } from 'radix-ui';
+import { cn } from '@/lib/utils';
 
 /**
  * The buttons of the app: primary (`default`), quiet (`outline`),
@@ -38,6 +40,8 @@ const buttonVariants = cva(
 /** A disabled button has colours of its own, never half opacity. */
 const disabledLook =
   'cursor-default border-transparent bg-muted text-muted-foreground hover:bg-muted';
+
+const isTrue = (value: unknown) => value === true || value === 'true';
 
 function Button({
   className,

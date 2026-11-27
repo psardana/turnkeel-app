@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
 
 /** An interrupting box: the strong line, 8 px corners, no fill of its own. */
 const alertVariants = cva(

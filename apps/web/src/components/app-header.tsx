@@ -1,5 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
+import { CheckIcon, ChevronDownIcon, PlusIcon, UserIcon } from 'lucide-react';
 import { Brand } from '@/components/brand';
+import { BottomBar } from '@/components/shell/bottom-bar';
+import { TabBar, type TabEntry } from '@/components/shell/tab-bar';
+import { ThemeMenuItems, ThemeSwitch } from '@/components/theme';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   forgetWorkspace,
   useOptionalWorkspace,
@@ -17,6 +24,8 @@ import {
   type WorkspaceSession,
 } from '@/features/session/session';
 import { authClient } from '@/lib/auth-client';
+import { usePhone } from '@/lib/media';
+import { cn } from '@/lib/utils';
 import { messages } from '@/messages';
 
 export { useProjectKey };
@@ -39,6 +48,80 @@ function useTabEntries(workspace: WorkspaceSession | null): TabEntry[] {
       count: tabCount(item, sectionNavigation(item.views, abilities, choice), counts),
     }));
   }, [abilities, counts, off, hidden]);
+}
+
+/**
+ * A view that lays itself out over the whole width and height under the header, such as
+ * Your turn with its pane and the Board, which scroll on their own.
+ */
+function useFullBleed(): boolean {
+  return useRouterState({
+    select: (state) => state.matches.some((match) => match.staticData?.fullBleed === true),
+  });
+}
+
+/**
+ * "Demo data", right after the workspace name in the demo workspace, on every page.
+ * It is never cut and never moved into a menu.
+ */
+function DemoLabel({ workspace }: { workspace: WorkspaceSession | null }) {
+  if (!workspace?.entry.workspace.demo) return null;
+  return <Badge className="shrink-0">{messages.nav.demoData}</Badge>;
+}
+
+/**
+ * Remove demo data: `DELETE /workspaces/:ws` on the demo workspace, for its
+ * Owner, after a confirm that says what it does. The app then asks for a name and makes
+ * the person's own workspace (the welcome page), or opens another workspace they have.
+ */
+function RemoveDemoDialog({
+  current,
+  open,
+  onOpenChange,
+}: {
+  current: WorkspaceSession;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [pending, setPending] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const remove = async () => {
+    setPending(true);
+    setProblem(null);
+    try {
+      await apiVoid('DELETE', `/workspaces/${seg(current.slug)}`);
+      forgetWorkspace(current.slug);
+      await queryClient.invalidateQueries({ queryKey: meQuery.queryKey });
+      onOpenChange(false);
+      await navigate({ to: '/' });
+      // The menu that opened this is gone with the demo: the next page's heading takes
+      // the focus, the welcome page's or another workspace's.
+      wantViewHeadingFocus();
+    } catch (error) {
+      setProblem(error instanceof ApiError ? error.message : messages.errors.network);
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={messages.nav.removeDemoTitle}
+      confirmLabel={messages.nav.removeDemoConfirm}
+      onConfirm={() => void remove()}
+      pending={pending}
+    >
+      {messages.nav.removeDemoBody}
+      {problem ? (
+        <span role="alert" className="text-destructive mt-2 block">
+          {problem}
+        </span>
+      ) : null}
+    </ConfirmDialog>
+  );
 }
 
 function WorkspaceMenu({ current }: { current: WorkspaceSession | null }) {

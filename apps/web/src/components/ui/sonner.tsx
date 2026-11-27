@@ -5,7 +5,11 @@ import {
   LoaderCircleIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
+import { useTheme } from '@/lib/use-theme';
+import { usePhone } from '@/lib/media';
+import { messages } from '@/messages';
 
 /** On a phone a toast sits under the top bar, with 8 px between them. */
 const UNDER_TOP_BAR = 'calc(var(--topbar-height) + 0.5rem + env(safe-area-inset-top))';

@@ -8,6 +8,9 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { themeChoices, type ThemeChoice } from '@/lib/theme';
+import { useTheme } from '@/lib/use-theme';
 import { messages } from '@/messages';
 
 const icons = { light: SunIcon, dark: MoonIcon, system: MonitorIcon } as const;

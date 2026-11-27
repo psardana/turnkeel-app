@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Slot } from 'radix-ui';
+import { countLabel } from '@/lib/fold';
+import { cn } from '@/lib/utils';
 
 /**
  * Pills and tags. None is a control: a tag has no hover, no
