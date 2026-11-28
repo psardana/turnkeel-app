@@ -17,6 +17,20 @@ import {
   type PersonPrincipal,
   type Principal,
 } from './principal.js';
+import type { AnyResource, ResourceFor } from './resource.js';
+import { roleTable, type Level } from './role-table.js';
+import {
+  actionsOfScopes,
+  fileReadActions,
+  hasReadScope,
+  humanOnlyRule,
+  isOnWordAction,
+  onWordActions,
+  onWordRule,
+  onWordScopeOf,
+  uploadScopes,
+  type OnWordAction,
+} from './scopes.js';
 
 /**
  * The one place that decides who may do what.
@@ -54,6 +68,9 @@ function canSystem(action: Action): Decision {
 }
 
 const sameId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** The `projectId` of a resource: null for an object with no project. */
+const projectOf = (resource: AnyResource): string | null => resource.projectId ?? null;
 
 /**
  * The level that judges the action on this resource: the level of its row in the role table,
@@ -212,6 +229,200 @@ const membershipChecks: Partial<Record<Action, MembershipCheck>> = {
     return allow;
   },
 };
+
+// --- Reach ------------------------------------------------------------------------
+
+/** A workspace, or one project in it: what a request names before it says what it does there. */
+export interface Place {
+  readonly workspaceId: string;
+  readonly projectId?: string | null;
+}
+
+// --- Agents -----------------------------------------------------------------------
+
+const onToken = (principal: AgentPrincipal, projectId: string) =>
+  principal.projectIds.some((id) => sameId(id, projectId));
+
+/**
+ * An agent acts through one token. It may do an action only when the token
+ * reaches the object, the action is not human-only, and a scope on the
+ * token allows it.
+ */
+function canAgent(principal: AgentPrincipal, action: Action, resource: AnyResource): Decision {
+  // R44: a workspace is created by a person. R13: a handle belongs to a person.
+  if (action === 'workspace.create') return forbid(messages.humanOnly, 'R44');
+  if (action === 'member.handle') return forbid(messages.humanOnly, 'R13');
+
+  // R1: a token of another workspace learns nothing about this one.
+  if (!sameId(resource.workspaceId ?? '', principal.workspaceId)) return hide();
+
+  const projectId = projectOf(resource);
+  // R12: no scope reads the workspace or a project as such. Their rows carry names,
+  // which reach an agent only wrapped, and an agent names its project by
+  // key. What the token reaches is asked of `canReach`. A project that is not on the
+  // token is out of reach, and answered as R1.
+  if (action === 'workspace.read' || action === 'project.read') {
+    const reach = agentReach(principal, { workspaceId: principal.workspaceId, projectId });
+    if (!reach.allowed) return hide();
+    return forbid(messages.noScopeReadsPlaces, 'R12');
+  }
+  const tableAction = action;
+
+  // A session belongs to its agent, not to a project. `session.write` is
+  // checked against the token's agent and workspace, with no project and no workspaceWide.
+  if (tableAction === 'session.write') {
+    if (resource.agentId !== undefined && !sameId(resource.agentId, principal.agentId)) {
+      return hide();
+    }
+    return scopeAllows(principal, tableAction, resource);
+  }
+
+  if (projectId !== null && !onToken(principal, projectId)) return hide('R11');
+
+  // R84: a token sees and reports the runs of its own agent's routines, and no others.
+  if (
+    tableAction === 'routine.run' &&
+    resource.agentId !== undefined &&
+    !sameId(resource.agentId, principal.agentId)
+  ) {
+    return hide();
+  }
+
+  // R13: never a human-only action, whatever the token holds.
+  if (isHumanOnly(tableAction)) return forbid(messages.humanOnly, humanOnlyRule(tableAction));
+
+  levelOf(tableAction, resource);
+  // R11: an object with no project only for a token with workspaceWide. A read of one
+  // is answered as if it were not there.
+  if (projectId === null && !principal.workspaceWide) {
+    return isRead(tableAction) ? hide() : forbid(messages.noWorkspaceWide, 'R11');
+  }
+
+  const scoped = scopeAllows(principal, tableAction, resource);
+  if (!scoped.allowed) return scoped;
+  if (isOnWordAction(tableAction)) {
+    const word = onWordOfAllows(tableAction, resource);
+    if (!word.allowed) return word;
+  }
+  // A receipt is Money's: its upload, too, is on the word of a person who may write
+  // Money there.
+  if (tableAction === 'file.upload' && resource.purpose === 'receipt') {
+    const word = receiptWordAllows(resource);
+    if (!word.allowed) return word;
+  }
+  return agentLimits(principal, tableAction, resource);
+}
+
+/** R83 for the upload of a receipt: the person may take `money.write` there themselves. */
+function receiptWordAllows(resource: AnyResource): Decision {
+  const person = resource.onWordOf ?? null;
+  if (person === null) return forbid(messages.onWordNoPerson, 'R83');
+  const answer = can(person, 'money.write', {
+    workspaceId: resource.workspaceId ?? '',
+    projectId: projectOf(resource),
+  });
+  return answer.allowed ? allow : forbid(messages.onWordPersonMayNot('money.write'), 'R83');
+}
+
+/** R12: a scope on the token must allow the action. An upload is allowed only for its purpose. */
+function scopeAllows(
+  principal: AgentPrincipal,
+  action: TableAction,
+  resource: AnyResource,
+): Decision {
+  if (action === 'file.upload') {
+    const { purpose } = resource;
+    if (purpose === undefined) return forbid(messages.uploadPurposeMissing, 'R47');
+    const scope = uploadScopes[purpose];
+    if (scope === null || !principal.scopes.includes(scope)) {
+      return forbid(messages.uploadPurpose(purpose), 'R47');
+    }
+    return allow;
+  }
+  if (actionsOfScopes(principal.scopes).has(action)) return allow;
+  // An action of an opt-in scope is refused, without the scope, under the rule that kept
+  // it a person's.
+  if (isOnWordAction(action) && action !== 'decision.relay') {
+    return forbid(messages.noOptInScope(action, onWordScopeOf(action)), onWordRule(action));
+  }
+  return forbid(messages.noScope(action), 'R12');
+}
+
+/** The limits some actions have for an agent beyond its scopes. */
+function agentLimits(
+  principal: AgentPrincipal,
+  action: TableAction,
+  resource: AnyResource,
+): Decision {
+  switch (action) {
+    case 'decision.propose': {
+      // R15: an agent records a decision as proposed, and says nothing about what it supersedes.
+      if (resource.supersedes === true) return forbid(messages.agentDecision, 'R15');
+      if (resource.status !== undefined && resource.status !== 'proposed') {
+        return forbid(messages.agentDecision, 'R15');
+      }
+      if (resource.edit) {
+        // R38: an edit only while proposed, and only of its own decision.
+        if (resource.edit.status !== 'proposed') {
+          return forbid(messages.decisionEditProposed, 'R38');
+        }
+        const recorder = resource.edit.recordedBy;
+        if (recorder.kind !== 'agent' || !sameId(recorder.id, principal.agentId)) {
+          return forbid(messages.decisionEditOthers, 'R38');
+        }
+      }
+      return allow;
+    }
+    case 'decision.relay':
+      // R15 as amended: with decisions:decide, on the word of a person who
+      // may decide (checked above), accepted, rejected or parked, and nothing else.
+      if (resource.supersedes === true) return forbid(messages.relayStatus, 'R15');
+      // A decision that supersedes another replaces it when it changes: a person's.
+      if (resource.replaces === true) return conflict(messages.relayReplaces, 'R15');
+      return resource.status === 'accepted' ||
+        resource.status === 'rejected' ||
+        resource.status === 'parked'
+        ? allow
+        : forbid(messages.relayStatus, 'R15');
+    case 'money.write':
+      // money:write covers cost lines, receipts, plans and rates; a scenario of the
+      // calculator stays a person's.
+      return resource.scenario === true ? forbid(messages.scenarioPersonOnly, 'R13') : allow;
+    case 'signal.write':
+      // R42: an agent's Signal is one of Money's four kinds, a post's two, a post's
+      // four counts on its network or a channel's followers.
+      return resource.kind === undefined ||
+        [
+          'cost',
+          'revenue',
+          'usage',
+          'subscribers',
+          'clicks',
+          'signups',
+          'views',
+          'likes',
+          'comments',
+          'shares',
+          'followers',
+        ].includes(resource.kind)
+        ? allow
+        : forbid(messages.signalKind, 'R42');
+    case 'file.read':
+      return fileRead(principal, resource);
+    case 'milestone.write':
+      // R75: the launch milestone carries the project's launch date, so any change of it
+      // needs `project.update`, which no token holds.
+      return resource.launch === true ? forbid(messages.launchMilestone, 'R75') : allow;
+    case 'gate.check':
+      // R16: an agent's check sets the state only of a `pass: agent` gate. On any other
+      // gate it adds evidence and leaves the state as it was.
+      return resource.setsState === true && resource.pass !== 'agent'
+        ? forbid(messages.gateAgentCheck, 'R16')
+        : allow;
+    default:
+      return allow;
+  }
+}
 
 // --- Both -------------------------------------------------------------------------
 

@@ -7,6 +7,9 @@ import {
 } from '@turnkeel/protocol';
 import type { TableAction } from './actions.js';
 import { messages } from './messages.js';
+import type { PersonPrincipal } from './principal.js';
+import type { AnyResource, MemberChange } from './resource.js';
+import { roleTable } from './role-table.js';
 
 /**
  * A limit that an action has beyond its row in the role table. A guard runs after the
@@ -26,6 +29,10 @@ const isProjectRole = (role: Role): role is ProjectRole =>
  */
 function rank(role: Role): number {
   return role === 'owner' ? 0 : role === 'admin' ? 1 : 2;
+}
+
+function aboveOwn(actor: Role, given: Role): boolean {
+  return rank(given) < rank(actor);
 }
 
 function memberChange(actor: Role, change: MemberChange, principal: PersonPrincipal): Decision {
@@ -99,6 +106,21 @@ function projectRoleOf(
 
 const isSelf = (principal: PersonPrincipal, userId: string | undefined) =>
   userId !== undefined && userId.toLowerCase() === principal.userId.toLowerCase();
+
+/** True when the role may take `decision.decide`, which is judged at the same level as `decision.propose`. */
+const decides = (role: Role) => roleTable['decision.decide'].roles.includes(role);
+
+/** A person writes only their own notes and marks (`step.note` and `step.mark` are "own"). */
+const ownNote: Guard = (_role, resource, principal) =>
+  resource.ownerId === undefined || isSelf(principal, resource.ownerId)
+    ? allow
+    : forbid(messages.ownNotes);
+
+/** R75: what changes the launch milestone, its date or anything else, or removes it, needs `project.update` too. */
+const launchNeedsProjectUpdate: Guard = (role, resource) =>
+  resource.launch === true && !roleTable['project.update'].roles.includes(role)
+    ? forbid(messages.launchMilestone, 'R75')
+    : allow;
 
 /** The actions that have a limit of their own. */
 export const guards: Partial<Record<TableAction, Guard>> = {

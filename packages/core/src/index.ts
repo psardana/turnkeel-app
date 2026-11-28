@@ -24,6 +24,25 @@ export {
 export { type Allowed, type Decision, type Denied } from './decision.js';
 export { guards, type Guard } from './guards.js';
 export {
+  actionsOfScopes,
+  anyReadScopeActions,
+  fileReadActions,
+  hasReadScope,
+  humanOnlyRule,
+  isOnWordAction,
+  onWordRule,
+  onWordScopeOf,
+  takesWord,
+  isScope,
+  noScopeReads,
+  onWordActions,
+  readScopes,
+  scopeTable,
+  uploadScopes,
+  type OnWordAction,
+} from './scopes.js';
+export { tokenUsable, type AgentState, type TokenState } from './tokens.js';
+export {
   effectiveProjectRole,
   isOwnerAnywhere,
   membershipIn,

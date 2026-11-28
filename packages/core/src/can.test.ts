@@ -825,6 +825,116 @@ describe('Viewers and Reviewers on the whole table', () => {
   });
 });
 
+describe('what a Member cannot do', () => {
+  it.each([
+    ['asset.decide', p1],
+    ['decision.decide', p1],
+    ['post.approve', p1],
+    ['release.publish', p1],
+    ['member.manage', undefined],
+    ['agent.manage', undefined],
+    ['connector.manage', undefined],
+    ['assistant.manage', undefined],
+    ['money.write', p1],
+  ] as const)('a Member cannot do %s', (action, projectId) => {
+    expectDenied(ask(person('member'), action, projectId), 'forbidden', 'R7');
+  });
+
+  it('a Member does the work: cards, gates, posts, releases, the inbox', () => {
+    for (const action of [
+      'card.create',
+      'gate.pass',
+      'post.write',
+      'post.send',
+      'release.write',
+      'inbox.triage',
+      'assistant.draft',
+    ] as const) {
+      expectAllowed(ask(person('member'), action, p1));
+    }
+  });
+});
+
+describe('every status change of a decision needs decision.decide', () => {
+  it('Owner, Admin and Reviewer decide; Member and Viewer do not', () => {
+    for (const role of ['owner', 'admin', 'reviewer'] as const) {
+      expectAllowed(ask(person(role), 'decision.decide', p1));
+    }
+    expectDenied(ask(person('member'), 'decision.decide', p1), 'forbidden', 'R7');
+    expectDenied(ask(person('viewer'), 'decision.decide', p1), 'forbidden', 'R5');
+  });
+
+  it('recording a decision as anything but proposed needs decision.decide', () => {
+    const record = (role: WorkspaceRole, status: 'proposed' | 'accepted') =>
+      can(person(role), 'decision.propose', { workspaceId: ws, projectId: p1, status });
+    expectAllowed(record('member', 'proposed'));
+    expectDenied(record('member', 'accepted'), 'forbidden', 'R23');
+    expectAllowed(record('reviewer', 'accepted'));
+  });
+
+  it('a workspace-wide decision is decided by the workspace role', () => {
+    expectAllowed(can(person('reviewer'), 'decision.decide', { workspaceId: ws, projectId: null }));
+    expectDenied(
+      can(person(null, { [p1]: 'reviewer' }), 'decision.decide', {
+        workspaceId: ws,
+        projectId: null,
+      }),
+      'forbidden',
+      'R30',
+    );
+  });
+});
+
+describe('editing a decision and saying what it supersedes', () => {
+  const me = { kind: 'user', id: userId } as const;
+  const other = { kind: 'user', id: otherUserId } as const;
+  const propose = (role: WorkspaceRole, extra: object) =>
+    can(person(role), 'decision.propose', { workspaceId: ws, projectId: p1, ...extra });
+
+  it('only a person with decision.decide sets supersedesId', () => {
+    expectAllowed(propose('reviewer', { supersedes: true }));
+    expectAllowed(propose('admin', { supersedes: true }));
+    expectDenied(propose('member', { supersedes: true }), 'forbidden', 'R38');
+  });
+
+  it('whoever recorded a decision edits it while it is proposed', () => {
+    expectAllowed(propose('member', { edit: { recordedBy: me, status: 'proposed' } }));
+    expectDenied(
+      propose('member', { edit: { recordedBy: me, status: 'accepted' } }),
+      'forbidden',
+      'R38',
+    );
+  });
+
+  it("someone else's decision only with decision.decide", () => {
+    expectDenied(
+      propose('member', { edit: { recordedBy: other, status: 'proposed' } }),
+      'forbidden',
+      'R38',
+    );
+    expectAllowed(propose('reviewer', { edit: { recordedBy: other, status: 'proposed' } }));
+    expectDenied(
+      propose('reviewer', { edit: { recordedBy: other, status: 'parked' } }),
+      'forbidden',
+      'R38',
+    );
+  });
+});
+
+describe('nobody gives a role above their own', () => {
+  it('an Admin gives Admin and the roles below it, and never Owner', () => {
+    const manage = (change: Parameters<typeof can<'member.manage'>>[2]['change']) =>
+      can(person('admin'), 'member.manage', { workspaceId: ws, change });
+    expectAllowed(manage({ type: 'invite', role: 'admin' }));
+    expectDenied(manage({ type: 'invite', role: 'owner' }), 'forbidden', 'R31');
+    expectDenied(
+      manage({ type: 'set_role', current: 'viewer', next: 'owner', ownerCount: 1 }),
+      'forbidden',
+      'R31',
+    );
+  });
+});
+
 describe('money, files and the assistant', () => {
   it('money.write for rates is judged by the workspace role only', () => {
     const projectAdmin = person('viewer', { [p1]: 'member' });

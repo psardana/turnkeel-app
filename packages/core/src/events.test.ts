@@ -83,6 +83,98 @@ describe('an event reaches only a principal that may read what it is about', () 
   });
 });
 
+describe('events about agents and tokens, and what reaches an agent', () => {
+  const agent: AgentPrincipal = {
+    kind: 'agent',
+    agentId: '55555555-5555-4555-8555-555555555555',
+    tokenId: '66666666-6666-4666-8666-666666666666',
+    workspaceId: ws,
+    scopes: standardScopes,
+    projectIds: [p1],
+    workspaceWide: true,
+  };
+
+  it.each(eventTypesByArea.agents)('%s reaches only a person with agent.read', (type) => {
+    for (const role of ['owner', 'admin'] as const) {
+      expect(canReadEvent(person(role), { workspaceId: ws, projectId: null, type }).allowed).toBe(
+        true,
+      );
+    }
+    for (const role of ['member', 'reviewer', 'viewer'] as const) {
+      expect(canReadEvent(person(role), { workspaceId: ws, projectId: null, type })).toMatchObject({
+        allowed: false,
+        kind: 'not_found',
+      });
+    }
+    expect(
+      canReadEvent(person(null, { [p1]: 'member' }), { workspaceId: ws, projectId: p1, type })
+        .allowed,
+    ).toBe(false);
+  });
+
+  it.each([...eventTypesByArea.people, ...eventTypesByArea.agents])(
+    '%s never reaches an agent token, whatever its scopes',
+    (type) => {
+      expect(canReadEvent(agent, { workspaceId: ws, projectId: null, type })).toMatchObject({
+        allowed: false,
+        kind: 'not_found',
+      });
+    },
+  );
+
+  it('an event with no project reaches an agent only with workspaceWide', () => {
+    for (const type of [
+      'workspace.created',
+      'workspace.updated',
+      'workspace.transferred',
+    ] as const) {
+      expect(canReadEvent(agent, { workspaceId: ws, projectId: null, type }).allowed).toBe(true);
+      expect(
+        canReadEvent(
+          { ...agent, workspaceWide: false },
+          { workspaceId: ws, projectId: null, type },
+        ),
+      ).toMatchObject({ allowed: false, kind: 'not_found' });
+    }
+  });
+
+  it.each(['project.created', 'project.updated', 'project.archived'] as const)(
+    '%s reaches no agent token, not even for a project on the token',
+    (type) => {
+      expect(canReadEvent(agent, { workspaceId: ws, projectId: p1, type })).toMatchObject({
+        allowed: false,
+        kind: 'not_found',
+      });
+      expect(canReadEvent(agent, { workspaceId: ws, projectId: p2, type })).toMatchObject({
+        allowed: false,
+        kind: 'not_found',
+      });
+    },
+  );
+
+  it('workspace.deleted reaches every token of the workspace, so its stream can end', () => {
+    const narrow = { ...agent, scopes: ['cards:read'], workspaceWide: false };
+    expect(
+      canReadEvent(narrow, { workspaceId: ws, projectId: null, type: 'workspace.deleted' }).allowed,
+    ).toBe(true);
+    expect(
+      canReadEvent(
+        { ...narrow, workspaceId: '22222222-2222-4222-8222-222222222222' },
+        { workspaceId: ws, projectId: null, type: 'workspace.deleted' },
+      ),
+    ).toMatchObject({ allowed: false, kind: 'not_found' });
+  });
+
+  it('nothing reaches a token of another workspace', () => {
+    expect(
+      canReadEvent(
+        { ...agent, workspaceId: '22222222-2222-4222-8222-222222222222' },
+        { workspaceId: ws, projectId: null, type: 'workspace.updated' },
+      ).allowed,
+    ).toBe(false);
+  });
+});
+
 describe('an import.item is read as the ordinary events of its row', () => {
   const imported = (
     subject: { type: string; owner?: { kind: 'user'; id: string } },
