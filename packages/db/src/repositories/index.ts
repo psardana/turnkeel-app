@@ -1,5 +1,6 @@
 import type { Executor } from '../database.js';
 import { assertScope, type WorkspaceScope } from '../scope.js';
+import { agentTokensRepository, agentsRepository } from './agents.js';
 import { eventsRepository } from './events.js';
 import { invitationsRepository } from './invitations.js';
 import { membersRepository, projectMembersRepository } from './members.js';

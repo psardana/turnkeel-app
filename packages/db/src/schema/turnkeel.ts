@@ -362,6 +362,75 @@ export const agents = pgTable(
 );
 
 /**
+ * An agent token. Only the SHA-256 of the token is stored; the token is
+ * shown once, when it is made. The hash never leaves this package.
+ */
+export const agentTokens = pgTable(
+  'agent_tokens',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    agentId: uuid('agent_id')
+      .notNull()
+      .references(() => agents.id),
+    name: text('name').notNull(),
+    prefix: text('prefix').notNull(),
+    hash: text('hash').notNull(),
+    scopes: text('scopes').array().notNull(),
+    projectIds: uuid('project_ids').array().notNull(),
+    workspaceWide: boolean('workspace_wide').notNull().default(false),
+    expiresAt: at('expires_at'),
+    revokedAt: at('revoked_at'),
+    lastUsedAt: at('last_used_at'),
+    /**
+     * The monthly cap of `spend:commit`, in `spend_cap_currency`, the workspace's currency
+     * when it was set. Kept when the scope is turned off.
+     */
+    spendCap: doublePrecision('spend_cap'),
+    spendCapCurrency: text('spend_cap_currency'),
+    /**
+     * The preset the token was made or last changed with, whose scopes it follows:
+     * `reporter`, `builder`, or null for a list of its own.
+     */
+    preset: text('preset'),
+    ...audit(),
+  },
+  (table) => [
+    uniqueIndex('agent_tokens_hash_key').on(table.hash),
+    check(
+      'agent_tokens_preset_check',
+      sql`${table.preset} is null or ${table.preset} in ('reporter', 'builder')`,
+    ),
+    // A cap is an amount above zero with its currency, and spend:commit needs one.
+    check(
+      'agent_tokens_spend_cap_check',
+      sql`(${table.spendCap} is null) = (${table.spendCapCurrency} is null) and (${table.spendCap} is null or (${table.spendCap} > 0 and ${table.spendCapCurrency} ~ '^[A-Z]{3}$'))`,
+    ),
+    check(
+      'agent_tokens_spend_commit_cap_check',
+      sql`not ('spend:commit' = any(${table.scopes})) or ${table.spendCap} is not null`,
+    ),
+    index('agent_tokens_agent_idx').on(table.agentId),
+    // A token names at least one project and at least one scope.
+    check('agent_tokens_project_ids_check', sql`cardinality(${table.projectIds}) > 0`),
+    check('agent_tokens_scopes_check', sql`cardinality(${table.scopes}) > 0`),
+    // R13: a token holds only scopes of the scope list, whatever the code above asks.
+    check(
+      'agent_tokens_scopes_known_check',
+      sql`${table.scopes} <@ array[${agentScopeList}]::text[]`,
+    ),
+    // A token's agent is in the token's workspace: the database refuses any other.
+    foreignKey({
+      name: 'agent_tokens_workspace_agent_fk',
+      columns: [table.workspaceId, table.agentId],
+      foreignColumns: [agents.workspaceId, agents.id],
+    }),
+  ],
+);
+
+/**
  * The event log. Append-only: a trigger rejects UPDATE, DELETE and
  * TRUNCATE (the hand-written migration `events_append_only`).
  */

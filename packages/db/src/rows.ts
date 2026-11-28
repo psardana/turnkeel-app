@@ -97,6 +97,8 @@ export type MemberRow = typeof members.$inferSelect;
 export type ProjectMemberRow = typeof projectMembers.$inferSelect;
 export type InvitationRow = typeof invitations.$inferSelect;
 export type UserRow = typeof user.$inferSelect;
+export type AgentRow = typeof agents.$inferSelect;
+export type AgentTokenRow = typeof agentTokens.$inferSelect;
 
 /** Who writes a row, and when. `at` is the server's clock unless given. */
 export interface Stamp {
@@ -238,6 +240,41 @@ export function toUser(row: UserRow): User {
     email: row.email,
     emailVerified: row.emailVerified,
     createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export function toAgent(row: AgentRow): Agent {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    name: row.name,
+    kind: row.kind,
+    ownerUserId: row.ownerUserId,
+    disabledAt: iso(row.disabledAt),
+    ...audit(row),
+  };
+}
+
+/** The token without its hash, which never leaves this package. */
+export function toAgentToken(row: AgentTokenRow): AgentToken {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    agentId: row.agentId,
+    name: row.name,
+    prefix: row.prefix,
+    scopes: row.scopes as AgentScope[],
+    projectIds: row.projectIds,
+    workspaceWide: row.workspaceWide,
+    expiresAt: iso(row.expiresAt),
+    revokedAt: iso(row.revokedAt),
+    lastUsedAt: iso(row.lastUsedAt),
+    spendCap:
+      row.spendCap === null || row.spendCapCurrency === null
+        ? null
+        : { amount: row.spendCap, currency: row.spendCapCurrency },
+    preset: row.preset === 'reporter' || row.preset === 'builder' ? row.preset : null,
+    ...audit(row),
   };
 }
 
