@@ -1,4 +1,6 @@
 import { eventAreaOf, type EventType, type Ref } from '@turnkeel/protocol';
+import { can, canReach } from './can.js';
+import { allow, hide, notBuilt, type Decision } from './decision.js';
 import { messages } from './messages.js';
 
 /** The part of an event that decides who may see it. */
@@ -168,6 +170,47 @@ export function canReadEvent(principal: Principal, event: EventToRead): Decision
       return notBuilt(messages.notBuilt(`reading ${String(event.type)}`));
   }
   return decision.allowed ? decision : hide();
+}
+
+/**
+ * Whether a message about an event may name its actor's id. A principal who
+ * reads only their own notes in the event's project (a Tester) learns who acted on a
+ * build by kind alone, unless it was them, as the build's answers name people to them.
+ * Everyone else gets the id.
+ */
+export function streamShowsActor(principal: Principal, event: EventToRead): boolean {
+  if (eventAreaOf(event.type) !== 'testing' || event.projectId === null) return true;
+  if (
+    principal.kind === 'user' &&
+    event.actor?.kind === 'user' &&
+    event.actor.id.toLowerCase() === principal.userId.toLowerCase()
+  ) {
+    return true;
+  }
+  return can(principal, 'step.notes.read', {
+    workspaceId: event.workspaceId,
+    projectId: event.projectId,
+    ownerId: '',
+  }).allowed;
+}
+
+/**
+ * What an agent gets of the Workspace area. No scope reads a workspace or a
+ * project as such, so:
+ *
+ * - `project.*` events reach no agent token. Each item kind an agent reads in a project
+ *   has its events judged by its read action.
+ * - An event with no project reaches a token only with `workspaceWide`, as any object
+ *   with no project does.
+ * - `workspace.deleted` reaches every token of the workspace: it is the moment all
+ *   access stops, and the stream ends on it.
+ */
+function agentReadsWorkspaceEvent(principal: AgentPrincipal, event: EventToRead): Decision {
+  const reach = canReach(principal, { workspaceId: event.workspaceId });
+  if (!reach.allowed) return reach;
+  if (event.type === 'workspace.deleted') return allow;
+  if (event.projectId !== null || event.type.startsWith('project.')) return hide();
+  return principal.workspaceWide ? allow : hide('R11');
 }
 
 /**

@@ -17,6 +17,7 @@ import {
   type WorkspaceRow,
 } from '@turnkeel/db';
 import { idSchema, slugSchema } from '@turnkeel/protocol';
+import { assertAllowed, notFound } from '../http/errors.js';
 import { messages } from '../messages.js';
 import { appendEvent, type ServiceContext } from './context.js';
 

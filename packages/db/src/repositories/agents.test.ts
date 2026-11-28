@@ -177,4 +177,19 @@ describe.each(testEngines)('agents and their tokens on %s', (engine) => {
     const agents = await reposOf(other.workspace.id).agents.list();
     expect(agents).toEqual([]);
   });
+
+  it('lists the agents a person owns and the tokens a person made that still work', async () => {
+    const repos = reposOf(acme.workspace.id);
+    const agent = await newAgent('made-by-owner');
+    const kept = await newToken(agent.id, `tk_${randomUUID()}`);
+    const gone = await newToken(agent.id, `tk_${randomUUID()}`);
+    await repos.agentTokens.revoke(gone.id, { by: acme.by });
+
+    const made = (await repos.agentTokens.listActiveCreatedBy(acme.owner.id)).map((t) => t.id);
+    expect(made).toContain(kept.id);
+    expect(made).not.toContain(gone.id);
+    expect(await repos.agentTokens.listActiveCreatedBy(randomUUID())).toEqual([]);
+    expect((await repos.agents.listOwnedBy(acme.owner.id)).map((a) => a.id)).toContain(agent.id);
+    expect(await repos.agents.listOwnedBy(randomUUID())).toEqual([]);
+  });
 });

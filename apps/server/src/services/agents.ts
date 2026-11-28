@@ -13,6 +13,7 @@ import type {
 import { newAgentToken } from '../auth/agent-tokens.js';
 import { HttpError, notFound } from '../http/errors.js';
 import { messages } from '../messages.js';
+import { authorize, idOr404, openWorkspace, openWorkspaceById, reposOf } from './access.js';
 import { liveWorkspace } from './workspaces.js';
 
 /**
@@ -287,6 +288,137 @@ export async function revokeToken(ctx: ServiceContext, idParam: string): Promise
         data: { agentId: revoked.agentId, name: revoked.name, prefix: revoked.prefix },
       });
       return toAgentToken(revoked);
+    });
+  }
+  throw notFound();
+}
+
+/**
+ * `PATCH /tokens/:id`: changes the token's standard scopes and turns its opt-in scopes on
+ * and off. Only an Owner may (`agent.manage` with
+ * `optInScopes`); an agent never, not even for its own token. The token's projects,
+ * hash and value stay as made, so the agent keeps its token and its next call is checked
+ * against the new scopes. A revoked or expired token is refused with 409, and so is one
+ * whose agent is disabled. `preset` gives the token Reporter's or Builder's standard scopes
+ * and makes it follow that preset; `scopes` without `preset` makes it follow none.
+ * One `token.updated` event with the opt-in scopes before and after, and the standard
+ * scopes and the preset before and after when they changed; none when nothing changes.
+ */
+export async function updateTokenScopes(
+  ctx: ServiceContext,
+  idParam: string,
+  input: UpdateTokenRequest,
+): Promise<AgentToken> {
+  const id = idOr404(idParam);
+  const caller = ctx.caller.principal;
+  if (caller.kind === 'agent') {
+    // R20: an agent changes no token, its own included.
+    await authorize(ctx, 'agent.manage', { workspaceId: caller.workspaceId });
+  }
+  const { principal } = requirePerson(ctx);
+  // With a preset, the standard scopes are the preset's.
+  const wantedStandard =
+    input.preset === undefined ? input.scopes : standardOfPreset(input.preset, input.scopes);
+
+  for (const membership of principal.memberships) {
+    const { workspaceId } = membership;
+    if (!can(principal, 'agent.manage', { workspaceId }).allowed) continue;
+    if (!(await reposOf(ctx.db, workspaceId).agentTokens.get(id))) continue;
+    // R83: only an Owner turns an opt-in scope on or off.
+    await authorize(ctx, 'agent.manage', { workspaceId, optInScopes: true });
+
+    return ctx.db.transaction(async (tx) => {
+      const repos = reposOf(tx, workspaceId);
+      await repos.workspace.lock();
+      const workspace = await liveWorkspace(await repos.workspace.get());
+      const token = await repos.agentTokens.get(id);
+      if (!token) throw notFound();
+      const agent = await repos.agents.get(token.agentId);
+      if (
+        !agent ||
+        !tokenUsable(
+          { revokedAt: token.revokedAt, expiresAt: token.expiresAt },
+          { disabledAt: agent.disabledAt },
+          nowOf(ctx),
+        )
+      ) {
+        throw new HttpError('conflict', messages.errors.tokenNotUsable);
+      }
+      const before = optInScopes.filter((scope) => token.scopes.includes(scope));
+      const wanted = input.optInScopes;
+      const after =
+        wanted === undefined ? before : optInScopes.filter((scope) => wanted.includes(scope));
+      const capBefore =
+        token.spendCap === null || token.spendCapCurrency === null
+          ? null
+          : { amount: token.spendCap, currency: token.spendCapCurrency };
+      const capAfter = input.spendCap ?? capBefore;
+      // The cap is in the workspace's currency, and spend:commit needs one.
+      if (input.spendCap !== undefined && input.spendCap.currency !== workspace.baseCurrency) {
+        throw new HttpError(
+          'unprocessable',
+          messages.errors.spendCapCurrency(workspace.baseCurrency),
+        );
+      }
+      // A cap goes with spend:commit only, as when a token is made: a token
+      // that will not hold the scope gets no new cap. One it holds already is kept.
+      if (input.spendCap !== undefined && !after.includes('spend:commit')) {
+        throw new HttpError('unprocessable', messages.errors.spendCapWithoutScope);
+      }
+      const turnsOnSpend = after.includes('spend:commit') && !before.includes('spend:commit');
+      if (after.includes('spend:commit') && capAfter === null) {
+        throw new HttpError('unprocessable', messages.errors.spendCapNeeded);
+      }
+      if (turnsOnSpend && capAfter !== null && capAfter.currency !== workspace.baseCurrency) {
+        throw new HttpError(
+          'unprocessable',
+          messages.errors.spendCapCurrency(workspace.baseCurrency),
+        );
+      }
+      // The standard scopes, all of them from now on, when they are sent.
+      const standardBefore = token.scopes.filter((scope) => !isOptInScope(scope));
+      const standardAfter =
+        wantedStandard === undefined
+          ? standardBefore
+          : standardScopes.filter((scope) => wantedStandard.includes(scope));
+      const standardChanged =
+        standardBefore.length !== standardAfter.length ||
+        standardAfter.some((scope) => !standardBefore.includes(scope));
+      const scopesChanged = JSON.stringify(before) !== JSON.stringify(after);
+      const capChanged = JSON.stringify(capBefore) !== JSON.stringify(capAfter);
+      // A preset makes the token follow it, a list of scopes alone follows none, and
+      // a change of only the opt-in scopes or the cap keeps what the token follows.
+      const presetBefore = presetOfRow(token.preset);
+      const presetAfter = input.preset ?? (input.scopes === undefined ? presetBefore : null);
+      const presetChanged = presetBefore !== presetAfter;
+      if (!scopesChanged && !standardChanged && !capChanged && !presetChanged) {
+        return toAgentToken(token);
+      }
+      const scopes = [...standardAfter, ...after];
+      if (scopes.length === 0) throw new HttpError('unprocessable', messages.errors.tokenNoScope);
+      const saved = await repos.agentTokens.setScopes(
+        id,
+        scopes,
+        stampOf(ctx),
+        capChanged && capAfter !== null ? capAfter : undefined,
+        presetChanged ? presetAfter : undefined,
+      );
+      if (!saved) throw notFound();
+      // R48: the names of scopes and the cap; never the token or its hash.
+      await appendEvent(ctx, repos, {
+        type: 'token.updated',
+        subject: { type: 'token', id },
+        data: {
+          agentId: token.agentId,
+          name: token.name,
+          prefix: token.prefix,
+          optInScopes: [before, after],
+          ...(standardChanged ? { scopes: [standardBefore, standardAfter] } : {}),
+          ...(presetChanged ? { preset: [presetBefore, presetAfter] } : {}),
+          ...(capChanged ? { spendCap: [capBefore, capAfter] } : {}),
+        },
+      });
+      return toAgentToken(saved);
     });
   }
   throw notFound();

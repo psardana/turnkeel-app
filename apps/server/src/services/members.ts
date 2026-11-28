@@ -1,4 +1,5 @@
 import { can, roleTable } from '@turnkeel/core';
+import { toMember, toProjectMember, toUser, type Repositories } from '@turnkeel/db';
 import type {
   Member,
   ProjectMember,
@@ -10,6 +11,7 @@ import type {
 import { assertAllowed, HttpError, notFound } from '../http/errors.js';
 import { messages } from '../messages.js';
 import { authorize, idOr404, openProject, openWorkspace, reposOf } from './access.js';
+import { appendEvent, requirePerson, stampOf, type ServiceContext } from './context.js';
 import { liveWorkspace } from './workspaces.js';
 
 /**
@@ -320,6 +322,32 @@ export async function removeProjectMember(
       await repos.personViews.remove(userId);
     }
   });
+}
+
+/** True when the workspace role holds `agent.manage`. */
+const managesAgents = (role: WorkspaceRole) => roleTable['agent.manage'].roles.includes(role);
+
+/**
+ * Revokes every token a person made in the workspace that still works, with a
+ * `token.revoked` for each that says why, in the transaction of the member change.
+ * Called when the person is removed, or loses `agent.manage` by a change of role.
+ */
+async function revokeTokensMadeBy(
+  ctx: ServiceContext,
+  repos: Repositories,
+  userId: string,
+  reason: 'member_removed' | 'role_changed',
+): Promise<void> {
+  const stamp = stampOf(ctx);
+  for (const token of await repos.agentTokens.listActiveCreatedBy(userId)) {
+    const revoked = await repos.agentTokens.revoke(token.id, stamp);
+    if (!revoked) continue;
+    await appendEvent(ctx, repos, {
+      type: 'token.revoked',
+      subject: { type: 'token', id: revoked.id },
+      data: { agentId: revoked.agentId, name: revoked.name, prefix: revoked.prefix, reason },
+    });
+  }
 }
 
 /**

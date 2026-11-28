@@ -238,6 +238,42 @@ export interface Place {
   readonly projectId?: string | null;
 }
 
+/**
+ * R1, R11: whether the principal reaches a workspace, or a project in it, at all. It
+ * says nothing about what the principal may do there, which `can` answers. A request
+ * that names a place asks this first, and anything out of reach is the one 404.
+ *
+ * - A person reaches a workspace where they hold a workspace role or a project role,
+ *   and a project there when the workspace role covers it or they hold a role in it.
+ * - An agent reaches its token's workspace, and the projects on its token. A project of
+ *   that workspace that is not on the token is out of reach by R11.
+ */
+export function canReach(principal: Principal, place: Place): Decision {
+  switch (principal.kind) {
+    case 'user':
+      return personReach(principal, place);
+    case 'agent':
+      return agentReach(principal, place);
+    case 'system':
+      return notBuilt(messages.systemNotBuilt);
+  }
+}
+
+function personReach(principal: PersonPrincipal, place: Place): Decision {
+  const membership = membershipIn(principal, place.workspaceId);
+  if (!membership) return hide();
+  const projectId = place.projectId ?? null;
+  if (projectId === null || membership.role !== null) return allow;
+  return projectRoleIn(membership, projectId) ? allow : hide();
+}
+
+function agentReach(principal: AgentPrincipal, place: Place): Decision {
+  if (!sameId(place.workspaceId, principal.workspaceId)) return hide();
+  const projectId = place.projectId ?? null;
+  if (projectId !== null && !onToken(principal, projectId)) return hide('R11');
+  return allow;
+}
+
 // --- Agents -----------------------------------------------------------------------
 
 const onToken = (principal: AgentPrincipal, projectId: string) =>

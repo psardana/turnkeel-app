@@ -133,6 +133,22 @@ export interface OnWordResource extends WorkspaceResource {
   readonly onWordOf: PersonPrincipal | null;
 }
 
+/** Who sets the state of a gate: a person, an agent's check, or a connector's check. */
+export type GatePass = 'human' | 'agent' | 'check';
+
+/**
+ * `gate.pass` and `gate.check`: a gate and its `pass`.
+ *
+ * - `reopen` is true when `gate.pass` sets a passed gate back to open.
+ * - `setsState` is true when `gate.check` would set the gate's state with its result.
+ *   Without it the check only adds evidence, which every kind of gate takes.
+ */
+export interface GateResource extends ProjectResource {
+  readonly pass: GatePass;
+  readonly reopen?: boolean;
+  readonly setsState?: boolean;
+}
+
 /** `money.write`. `rates` is true for currency rates and the rates for a model, which are
  * judged by the workspace role. */
 export interface MoneyResource extends WorkspaceResource {

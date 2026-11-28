@@ -5,6 +5,7 @@ import type { Auth } from '../auth/auth.js';
 import type { Logger } from '../log.js';
 import type { Mailer } from '../mail/mailer.js';
 import type { KeyedWrite, ServerSettings, ServiceContext } from '../services/context.js';
+import type { DeniedLimiter } from '../services/denials.js';
 import type { AppEnv } from './context.js';
 import type { AgentTokenVerifier, LocalMode } from './principal.js';
 

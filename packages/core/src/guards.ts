@@ -6,6 +6,7 @@ import {
   type WorkspaceRole,
 } from '@turnkeel/protocol';
 import type { TableAction } from './actions.js';
+import { allow, conflict, forbid, type Decision } from './decision.js';
 import { messages } from './messages.js';
 import type { PersonPrincipal } from './principal.js';
 import type { AnyResource, MemberChange } from './resource.js';

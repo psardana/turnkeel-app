@@ -21,6 +21,7 @@ export {
   type MembershipAction,
   type TableAction,
 } from './actions.js';
+export { can, canReach, type Place } from './can.js';
 export { type Allowed, type Decision, type Denied } from './decision.js';
 export { guards, type Guard } from './guards.js';
 export {

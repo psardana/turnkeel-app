@@ -27,6 +27,7 @@ import type { AgentTokenVerifier } from './http/principal.js';
 import { createJobRunner, defineJobs, type JobRunner } from './jobs/index.js';
 import { claimDataDir, databaseDir } from './local/data-dir.js';
 import { createMailer, type Mailer } from './mail/mailer.js';
+import { createDeniedLimiter } from './services/denials.js';
 import { messages } from './messages.js';
 
 /** How often a stream sends its comment line. */

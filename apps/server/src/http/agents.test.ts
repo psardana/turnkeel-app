@@ -10,6 +10,7 @@ import type {
   Project,
 } from '@turnkeel/protocol';
 import { sql } from 'drizzle-orm';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   bodyOf,
   buildWorld,
@@ -617,6 +618,79 @@ describe.each(testEngines)('agents and agent tokens on %s', (engine) => {
       });
     });
 
+    it('changing a handle is a person’s, and an agent that tries is recorded', async () => {
+      const token = await freshToken();
+      const response = await bearer(
+        token.value,
+        'PATCH',
+        `/api/v1/workspaces/acme/members/${w.ids.viewer}`,
+        { handle: 'taken-over' },
+      );
+      expect(response.status).toBe(403);
+      expect((await errorOf(response)).rule).toBe('R13');
+      expect((await eventsOfRequest(response))[0]?.data).toMatchObject({
+        action: 'member.handle',
+        rule: 'R13',
+      });
+    });
+
+    describe('how many access.denied events a token can cause', () => {
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('100 refusals at once append one event, and the next one after the minute carries the count', async () => {
+        const token = await freshToken();
+        const refuse = () =>
+          bearer(token.value, 'PATCH', '/api/v1/workspaces/acme/projects/app', { name: 'Mine' });
+        const deniedOfToken = async () =>
+          (await eventsOf(t, 'acme')).filter(
+            (event) => event.type === 'access.denied' && event.tokenId === token.token.id,
+          );
+
+        const responses = await Promise.all(Array.from({ length: 100 }, refuse));
+        expect(responses.map((response) => response.status)).toEqual(
+          Array.from({ length: 100 }, () => 403),
+        );
+        const first = await deniedOfToken();
+        expect(first).toHaveLength(1);
+        expect(first[0]?.data).toEqual({
+          action: 'project.update',
+          rule: 'R13',
+          answer: 'forbidden',
+          repeats: 0,
+        });
+
+        // Within the minute: refused, and only counted.
+        expect((await refuse()).status).toBe(403);
+        expect(await deniedOfToken()).toHaveLength(1);
+
+        // Another action of the same token is a kind of its own, with an event of its own.
+        const other = await bearer(token.value, 'POST', '/api/v1/workspaces/acme/projects', {
+          name: 'X',
+          key: 'XQ',
+          slug: 'xq',
+        });
+        expect(other.status).toBe(403);
+        expect(await eventsOfRequest(other)).toHaveLength(1);
+
+        // A minute later the next refusal is written, with the 100 that were not.
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(Date.now() + 61_000);
+        const later = await refuse();
+        expect(later.status).toBe(403);
+        const after = await eventsOfRequest(later);
+        expect(after).toHaveLength(1);
+        expect(after[0]?.data).toEqual({
+          action: 'project.update',
+          rule: 'R13',
+          answer: 'forbidden',
+          repeats: 100,
+        });
+        expect(await deniedOfToken()).toHaveLength(3);
+      });
+    });
+
     it('an agent cannot revoke its own token, which goes on working', async () => {
       const response = await bearer(
         botToken.value,
@@ -846,6 +920,68 @@ describe.each(testEngines)('agents and agent tokens on %s', (engine) => {
         data: { reason: 'role_changed', prefix: made.token.prefix },
       });
       expect((await bearer(made.value, 'GET', '/api/v1/workspaces/acme/stream')).status).toBe(401);
+    });
+  });
+
+  describe('the workspace’s own events on an agent’s stream', () => {
+    /** A workspace of its own, so that changing and deleting it touches no other test. */
+    async function workspaceWithTokens(slug: string) {
+      expect(
+        (await t.post('/api/v1/workspaces', { name: slug, slug, handle: 'olive' }, w.owner)).status,
+      ).toBe(201);
+      const project = await bodyOf<Project>(
+        await t.post(
+          `/api/v1/workspaces/${slug}/projects`,
+          { name: 'P', key: 'PP', slug: 'pp' },
+          w.owner,
+        ),
+      );
+      const agent = await bodyOf<Agent>(
+        await t.post(
+          `/api/v1/workspaces/${slug}/agents`,
+          { name: 'watcher', kind: 'other' },
+          w.owner,
+        ),
+      );
+      const token = async (workspaceWide: boolean) =>
+        bodyOf<CreateTokenResponse>(
+          await t.post(
+            `/api/v1/agents/${agent.id}/tokens`,
+            { name: 'CI', scopes: ['cards:read'], projectIds: [project.id], workspaceWide },
+            w.owner,
+          ),
+        );
+      return { narrow: await token(false), wide: await token(true) };
+    }
+
+    it('workspace.updated reaches a token with workspaceWide and no other', async () => {
+      const { narrow, wide } = await workspaceWithTokens('events-for-agents');
+      const narrowStream = await openAgentStream(narrow.value, 'events-for-agents');
+      const wideStream = await openAgentStream(wide.value, 'events-for-agents');
+      try {
+        expect(
+          (await t.patch('/api/v1/workspaces/events-for-agents', { name: 'Renamed' }, w.owner))
+            .status,
+        ).toBe(200);
+        const message = await wideStream.nextMessage();
+        expect(JSON.parse(message.data ?? '{}')).toMatchObject({
+          type: 'workspace.updated',
+          projectId: null,
+        });
+        expect(await narrowStream.quiet(500)).toBe(true);
+      } finally {
+        await narrowStream.close();
+        await wideStream.close();
+      }
+    });
+
+    it('workspace.deleted reaches every token of the workspace, and its stream ends', async () => {
+      const { narrow } = await workspaceWithTokens('deleted-for-agents');
+      const narrowStream = await openAgentStream(narrow.value, 'deleted-for-agents');
+      expect((await t.delete('/api/v1/workspaces/deleted-for-agents', w.owner)).status).toBe(200);
+      const message = await narrowStream.nextMessage();
+      expect(JSON.parse(message.data ?? '{}')).toMatchObject({ type: 'workspace.deleted' });
+      await narrowStream.ended(5000);
     });
   });
 

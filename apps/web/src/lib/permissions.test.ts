@@ -458,6 +458,35 @@ describe('the roles on offer in the invitation dialog', () => {
   });
 });
 
+describe('project roles on the Members page (R2, R30, R31)', () => {
+  const someone = { userId: testId(11), role: 'viewer' as const };
+
+  it('an Owner or Admin gives any of the four project roles', () => {
+    for (const role of ['owner', 'admin'] as const) {
+      expect(projectRolesToGive(meWith(role), WORKSPACE, PROJECT, someone)).toEqual([
+        'member',
+        'reviewer',
+        'tester',
+        'viewer',
+      ]);
+    }
+  });
+
+  it('nobody else gives one', () => {
+    for (const role of ['member', 'reviewer', 'viewer'] as const) {
+      expect(projectRolesToGive(meWith(role), WORKSPACE, PROJECT, someone)).toEqual([]);
+    }
+  });
+
+  it('only an Owner gives an Owner a project role, and nobody gives their own', () => {
+    const owner = { userId: testId(11), role: 'owner' as const };
+    expect(projectRolesToGive(meWith('admin'), WORKSPACE, PROJECT, owner)).toEqual([]);
+    expect(projectRolesToGive(meWith('owner'), WORKSPACE, PROJECT, owner)).toHaveLength(4);
+    const self = { userId: testId(10), role: 'owner' as const };
+    expect(projectRolesToGive(meWith('owner'), WORKSPACE, PROJECT, self)).toEqual([]);
+  });
+});
+
 describe('Links and Docs', () => {
   it('the groups of the whole workspace are read and changed by a workspace role only', () => {
     expect(linkAbilities(meWith('member'), WORKSPACE, PROJECT)).toEqual({

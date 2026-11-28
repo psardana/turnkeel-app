@@ -6,6 +6,7 @@ import { HttpError } from '../http/errors.js';
 import type { Logger } from '../log.js';
 import type { Mailer } from '../mail/mailer.js';
 import { messages } from '../messages.js';
+import type { DeniedLimiter } from './denials.js';
 
 /**
  * Keeps the first result of a write that carried an idempotency key, in the
