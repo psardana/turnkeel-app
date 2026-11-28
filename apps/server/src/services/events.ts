@@ -8,6 +8,7 @@ import {
   type EventType,
   type ListEventsQuery,
 } from '@turnkeel/protocol';
+import { authorize, openWorkspace, reposOf } from './access.js';
 import type { ServiceContext } from './context.js';
 
 /** How many pages one request reads from the log at most while it looks for events the caller may see. */

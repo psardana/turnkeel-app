@@ -12,6 +12,7 @@ import {
 } from '@turnkeel/db';
 import type { ServerInfo } from '@turnkeel/protocol';
 import type { Context, Hono } from 'hono';
+import { createAgentTokenVerifier } from './auth/agent-tokens.js';
 import { createAuth, type Auth } from './auth/auth.js';
 import { ConfigError, type Config } from './config.js';
 import { createApp } from './http/app.js';
@@ -22,6 +23,7 @@ import {
 } from './http/client-address.js';
 import type { AppEnv } from './http/context.js';
 import type { AppDeps } from './http/deps.js';
+import type { AgentTokenVerifier } from './http/principal.js';
 import { createJobRunner, defineJobs, type JobRunner } from './jobs/index.js';
 import { claimDataDir, databaseDir } from './local/data-dir.js';
 import { createMailer, type Mailer } from './mail/mailer.js';

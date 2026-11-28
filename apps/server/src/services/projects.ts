@@ -1,5 +1,6 @@
 import { can } from '@turnkeel/core';
 import type { CreateProjectRequest, Project, UpdateProjectRequest } from '@turnkeel/protocol';
+import { HttpError, notFound } from '../http/errors.js';
 import { messages } from '../messages.js';
 import { afterValues, appendEvent, changesOf, stampOf, type ServiceContext } from './context.js';
 import { liveWorkspace } from './workspaces.js';

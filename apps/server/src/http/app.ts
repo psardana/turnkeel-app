@@ -7,6 +7,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { LOCAL_SESSION_COOKIE, LOCAL_SESSION_MAX_AGE_SECONDS } from '../auth/local-session.js';
 import { messages } from '../messages.js';
+import { agentRoutes } from '../routes/agents.js';
 import { eventRoutes } from '../routes/events.js';
 import { publicInvitationRoutes, workspaceRoutes } from '../routes/workspaces.js';
 import { withClientAddress } from './client-address.js';

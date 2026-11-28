@@ -103,6 +103,11 @@ function describeWhat(event: Event, context: DescribeContext): Described {
       link: { kind: 'members' } as const,
     };
   };
+  /** An agent, by its name in the event. */
+  const agentItem = (name: unknown) => ({
+    label: text(name) ?? messages.activity.anAgent,
+    link: null,
+  });
   /** The project a people event is about, by name, or null for the whole workspace. */
   const inProject = event.projectId === null ? null : (projectName ?? messages.activity.theProject);
 

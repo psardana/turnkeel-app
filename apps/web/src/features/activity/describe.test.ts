@@ -43,6 +43,153 @@ const line = (described: Described) =>
     .join(' ');
 
 describe('describeEvent', () => {
+  it('says what happened to agents and tokens, and never shows a token', () => {
+    expect(
+      line(describeEvent(eventOf(1, 'agent.created', { data: { name: 'board-keeper' } }), context)),
+    ).toBe('added the agent [board-keeper]');
+    expect(
+      line(
+        describeEvent(
+          eventOf(2, 'agent.updated', { data: { ownerUserId: [OLIVE.id, ADA.id] } }),
+          context,
+        ),
+      ),
+    ).toBe('changed the owner of the agent [an agent]');
+    expect(
+      line(
+        describeEvent(eventOf(3, 'token.created', { data: { prefix: 'tk_AbCdEfGh' } }), context),
+      ),
+    ).toBe('made a token (tk_AbCdEfGh…) for the agent');
+    expect(
+      line(
+        describeEvent(
+          eventOf(4, 'access.denied', { data: { action: 'member.manage', rule: 'R20' } }),
+          context,
+        ),
+      ),
+    ).toBe('was refused: member.manage');
+    expect(
+      line(
+        describeEvent(
+          eventOf(5, 'access.denied', {
+            data: { action: 'project.update', rule: 'R13', repeats: 99 },
+          }),
+          context,
+        ),
+      ),
+    ).toBe('was refused: project.update and 99 more times since the line before');
+    expect(
+      line(
+        describeEvent(
+          eventOf(6, 'token.revoked', {
+            data: { prefix: 'tk_AbCdEfGh', reason: 'member_removed' },
+          }),
+          context,
+        ),
+      ),
+    ).toBe(
+      'revoked a token (tk_AbCdEfGh…) of the agent, because the person who made it left the workspace',
+    );
+    expect(
+      line(
+        describeEvent(
+          eventOf(7, 'token.revoked', { data: { prefix: 'tk_AbCdEfGh', reason: 'role_changed' } }),
+          context,
+        ),
+      ),
+    ).toBe(
+      'revoked a token (tk_AbCdEfGh…) of the agent, because the person who made it no longer manages agents',
+    );
+    expect(
+      line(
+        describeEvent(
+          eventOf(8, 'token.revoked', { data: { prefix: 'tk_AbCdEfGh', reason: 'demo_removed' } }),
+          context,
+        ),
+      ),
+    ).toBe('revoked a token (tk_AbCdEfGh…) of the agent, because the demo data was removed');
+    // An Owner turned an opt-in scope on, then off.
+    expect(
+      line(
+        describeEvent(
+          eventOf(9, 'token.updated', {
+            data: { prefix: 'tk_AbCdEfGh', optInScopes: [[], ['decisions:decide']] },
+          }),
+          context,
+        ),
+      ),
+    ).toBe('turned on decisions:decide on the token tk_AbCdEfGh…');
+    expect(
+      line(
+        describeEvent(
+          eventOf(10, 'token.updated', {
+            data: { prefix: 'tk_AbCdEfGh', optInScopes: [['decisions:decide'], []] },
+          }),
+          context,
+        ),
+      ),
+    ).toBe('turned off decisions:decide on the token tk_AbCdEfGh…');
+    // An Owner changed the standard scopes of a working token.
+    expect(
+      line(
+        describeEvent(
+          eventOf(11, 'token.updated', {
+            data: {
+              prefix: 'tk_AbCdEfGh',
+              optInScopes: [[], []],
+              scopes: [
+                ['cards:read', 'cards:write'],
+                ['cards:read', 'routines:run'],
+              ],
+            },
+          }),
+          context,
+        ),
+      ),
+    ).toBe('turned on routines:run and turned off cards:write on the token tk_AbCdEfGh…');
+    // An Owner chose a preset, and a list of the token's own made it custom.
+    expect(
+      line(
+        describeEvent(
+          eventOf(12, 'token.updated', {
+            data: {
+              prefix: 'tk_AbCdEfGh',
+              optInScopes: [[], []],
+              scopes: [['cards:read'], ['cards:read', 'routines:run']],
+              preset: [null, 'builder'],
+            },
+          }),
+          context,
+        ),
+      ),
+    ).toBe('turned on routines:run and chose the preset Builder on the token tk_AbCdEfGh…');
+    expect(
+      line(
+        describeEvent(
+          eventOf(13, 'token.updated', {
+            data: { prefix: 'tk_AbCdEfGh', optInScopes: [[], []], preset: ['builder', null] },
+          }),
+          context,
+        ),
+      ),
+    ).toBe('made the scopes custom on the token tk_AbCdEfGh…');
+    // The system gave a token the scope its preset gained in a release.
+    expect(
+      line(
+        describeEvent(
+          eventOf(14, 'token.updated', {
+            data: {
+              prefix: 'tk_AbCdEfGh',
+              optInScopes: [[], []],
+              scopes: [['cards:read'], ['cards:read', 'epics:write']],
+              followsPreset: 'builder',
+            },
+          }),
+          context,
+        ),
+      ),
+    ).toBe('turned on epics:write on the token tk_AbCdEfGh…, which follows Builder');
+  });
 
   it('says what happened to the workspace, and links to its settings', () => {
     const created = describeEvent(

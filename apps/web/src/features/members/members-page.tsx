@@ -23,6 +23,7 @@ import { invitationsQuery, keys, membersQuery, projectsQuery } from '@/lib/queri
 import { toastFailure } from '@/lib/toast';
 import { messages } from '@/messages';
 import { InviteDialog } from './invite-dialog';
+import { ProjectRolesDialog } from './project-roles-dialog';
 
 const nameOf = (person: WorkspacePerson) => person.user.name || person.user.email;
 

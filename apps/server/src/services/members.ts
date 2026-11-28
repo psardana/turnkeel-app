@@ -9,6 +9,7 @@ import type {
 } from '@turnkeel/protocol';
 import { assertAllowed, HttpError, notFound } from '../http/errors.js';
 import { messages } from '../messages.js';
+import { authorize, idOr404, openProject, openWorkspace, reposOf } from './access.js';
 import { liveWorkspace } from './workspaces.js';
 
 /**
