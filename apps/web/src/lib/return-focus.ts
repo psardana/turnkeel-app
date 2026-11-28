@@ -31,6 +31,39 @@ export function useReturnFocus(fallback?: () => HTMLElement | null) {
   };
 }
 
+/** Focus on the `h1` of the view that is shown, which has `tabindex="-1"`. */
+export function focusViewHeading(): void {
+  document.querySelector<HTMLElement>('main h1')?.focus({ preventScroll: true });
+}
+
+/** How long after a move to another view a heading that appears late still takes focus. */
+const HEADING_FOCUS_WINDOW_MS = 10_000;
+
+/**
+ * For a menu or a sheet whose entries can lead to another view. Radix gives the focus
+ * back to the button that opened it once it has closed, which comes after the new
+ * view has taken it, so the new view would lose it again. When the path changed while
+ * it was open, the focus goes to the new view's `h1` instead;
+ * when it did not, such as after a filter or Escape, it goes back to the button.
+ */
+export function useNavigatingMenuFocus() {
+  const router = useRouter();
+  const pathAtOpen = useRef<string | null>(null);
+  return {
+    onOpenChange: (open: boolean) => {
+      if (open) pathAtOpen.current = router.latestLocation.pathname;
+    },
+    onCloseAutoFocus: (event: Event) => {
+      const before = pathAtOpen.current;
+      pathAtOpen.current = null;
+      if (before !== null && before !== router.latestLocation.pathname) {
+        event.preventDefault();
+        focusViewHeading();
+      }
+    },
+  };
+}
+
 /**
  * For a sheet that shows an item: when it opens, the focus goes to the item's title,
  * which has `tabindex="-1"`, not to the sheet's Close. The title

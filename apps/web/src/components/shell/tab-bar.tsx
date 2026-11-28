@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { foldedCount, foldTabs } from '@/lib/fold';
+import { useNavigatingMenuFocus } from '@/lib/return-focus';
 import { cn } from '@/lib/utils';
 import { messages } from '@/messages';
 import type { NavItem } from '@/navigation';
