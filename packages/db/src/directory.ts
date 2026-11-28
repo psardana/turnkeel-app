@@ -262,6 +262,47 @@ export async function findAgentTokenByHash(
 }
 
 /**
+ * The agent token with this id, with its agent, wherever it is. An open stream asks it
+ * once a minute whether its token still works.
+ */
+export async function findAgentTokenById(
+  executor: Executor,
+  id: string,
+): Promise<{ token: AgentTokenRow; agent: AgentRow; workspace: WorkspaceRow } | null> {
+  const rows = await executor
+    .select({ token: agentTokens, agent: agents, workspace: workspaces })
+    .from(agentTokens)
+    .innerJoin(agents, eq(agents.id, agentTokens.agentId))
+    .innerJoin(workspaces, eq(workspaces.id, agentTokens.workspaceId))
+    .where(and(eq(agentTokens.id, id), isNull(workspaces.deletedAt)));
+  return rows[0] ?? null;
+}
+
+/**
+ * The tokens that follow a preset and are not revoked, with their
+ * agents, in the workspaces that are not deleted: what the server looks at when it
+ * starts, to give each the scopes its preset gained in a release.
+ */
+export async function tokensFollowingPresets(
+  executor: Executor,
+): Promise<{ token: AgentTokenRow; agent: AgentRow }[]> {
+  return executor
+    .select({ token: agentTokens, agent: agents })
+    .from(agentTokens)
+    .innerJoin(agents, eq(agents.id, agentTokens.agentId))
+    .innerJoin(workspaces, eq(workspaces.id, agentTokens.workspaceId))
+    .where(
+      and(
+        isNotNull(agentTokens.preset),
+        isNull(agentTokens.revokedAt),
+        isNull(agents.disabledAt),
+        isNull(workspaces.deletedAt),
+      ),
+    )
+    .orderBy(asc(agentTokens.createdAt), asc(agentTokens.id));
+}
+
+/**
  * True when an invitation to this address can still be accepted somewhere on the
  * server. A sign-in for an address without an account is let through only then.
  */

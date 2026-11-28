@@ -18,6 +18,16 @@ export interface RoleRule {
 }
 
 const ownerAdmin = ['owner', 'admin'] as const;
+const ownerAdminMember = ['owner', 'admin', 'member'] as const;
+const ownerAdminReviewer = ['owner', 'admin', 'reviewer'] as const;
+const writers = ['owner', 'admin', 'member', 'reviewer'] as const;
+/** Every role that reads the items of its projects: all but Tester. */
+const readers = ['owner', 'admin', 'member', 'reviewer', 'viewer'] as const;
+const everyone = ['owner', 'admin', 'member', 'reviewer', 'tester', 'viewer'] as const;
+
+const either = (roles: readonly Role[]): RoleRule => ({ level: 'either', roles });
+const project = (roles: readonly Role[]): RoleRule => ({ level: 'project', roles });
+const workspace = (roles: readonly Role[]): RoleRule => ({ level: 'workspace', roles });
 
 /**
  * The role table, one row per action. `money.write` has two rows: plans,
